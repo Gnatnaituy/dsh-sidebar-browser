@@ -1,7 +1,7 @@
 /**
  * Integration test for the host half, with DSH's three services stubbed.
  *
- * Drives the real plugin body: the `/invoke` route, the `/__dsh_picker__/pick`
+ * Drives the real plugin body: the `/invoke` route, the `/__dsh_shell__/pick`
  * sink on a real proxy port, the recorded context, the `read_picked_element`
  * tool and the system-prompt block. Run with `node resources/test/host-smoke.mjs
  * [target-origin]`.
@@ -67,7 +67,7 @@ const ctx = {
   },
 }
 
-check('plugin declares its name', name === 'dsh-sidebar-element-picker', name)
+check('plugin declares its name', name === 'dsh-sidebar-browser', name)
 check('plugin declares its services', inject.includes('webServer') && inject.includes('tools'), inject.join(','))
 
 apply(ctx)
@@ -92,7 +92,7 @@ const dshPort = server.address().port
  * @returns {Promise<object>} the answer.
  */
 async function invoke(method, params) {
-  const response = await fetch(`http://127.0.0.1:${dshPort}/dsh-sidebar-element-picker/invoke`, {
+  const response = await fetch(`http://127.0.0.1:${dshPort}/dsh-sidebar-browser/invoke`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ method, params }),
@@ -100,9 +100,9 @@ async function invoke(method, params) {
   return response.json()
 }
 
-check('invoke route registered', routes.has('/dsh-sidebar-element-picker/invoke'))
+check('invoke route registered', routes.has('/dsh-sidebar-browser/invoke'))
 check('tool registered', tools.has('read_picked_element'))
-check('prompt context registered', prompts.has('dsh-sidebar-element-picker'))
+check('prompt context registered', prompts.has('dsh-sidebar-browser'))
 
 const unknown = await invoke('nope', {})
 check('unknown method is refused', unknown.ok === false, JSON.stringify(unknown))
@@ -115,12 +115,12 @@ check('the tab is active', opened.activeId === opened.tabs[0].id, opened.activeI
 const port1 = opened.tabs[0].port
 check('the tab got a proxy port', port1 > 0, String(port1))
 
-const shell = await fetch(`http://127.0.0.1:${port1}/__dsh_picker__/chrome.html`)
+const shell = await fetch(`http://127.0.0.1:${port1}/__dsh_shell__/chrome.html`)
 check('shell page served on the allocated port', shell.status === 200, `status ${shell.status}`)
 const cookie = (shell.headers.get('set-cookie') ?? '').split(';')[0]
 check('shell mints the capability cookie', cookie.startsWith('dsh_picker_'), cookie)
 
-const picked = await fetch(`http://127.0.0.1:${port1}/__dsh_picker__/pick`, {
+const picked = await fetch(`http://127.0.0.1:${port1}/__dsh_shell__/pick`, {
   method: 'POST',
   headers: { cookie, 'content-type': 'application/json' },
   body: JSON.stringify({
@@ -147,7 +147,7 @@ check('tool returns the element', read.ok === true && read.element.selector === 
 const missing = tools.get('read_picked_element').execute({ id: 'DOM9' })
 check('tool reports an unknown number', missing.ok === false, JSON.stringify(missing))
 
-const summary = prompts.get('dsh-sidebar-element-picker').text()
+const summary = prompts.get('dsh-sidebar-browser').text()
 check('prompt lists the element', summary.includes('DOM1=') && summary.includes('提交订单'), summary.split('\n')[1])
 check('prompt names the tool', summary.includes('read_picked_element'))
 
@@ -190,9 +190,9 @@ check('orientation survives a state read', afterView.tabs[0].landscape === true)
 // Closing a tab releases its port only when its origin is no longer in use.
 const closed = await invoke('browser-close', { sessionId: 's1', id: sameOriginTab.tabs[1].id })
 check('closing a tab drops it from the list', closed.ok === true && closed.tabs.length === 2, JSON.stringify(closed).slice(0, 160))
-const portGone = await fetch(`http://127.0.0.1:${second.tabs[1].port}/__dsh_picker__/chrome.html`).then(() => true).catch(() => false)
+const portGone = await fetch(`http://127.0.0.1:${second.tabs[1].port}/__dsh_shell__/chrome.html`).then(() => true).catch(() => false)
 check('the freed origin\'s port is closed', portGone === false)
-const sharedStillUp = await fetch(`http://127.0.0.1:${port1}/__dsh_picker__/chrome.html`, { headers: { cookie } })
+const sharedStillUp = await fetch(`http://127.0.0.1:${port1}/__dsh_shell__/chrome.html`, { headers: { cookie } })
 check('an origin still in use keeps its port', sharedStillUp.status === 200, `status ${sharedStillUp.status}`)
 
 // A restore snapshot rebuilds a browser after a DSH restart.
@@ -229,7 +229,7 @@ check('the proxied page is the target document', (await proxied.text()).includes
 
 const cleared = await invoke('context-clear', { sessionId: 's1' })
 check('context-clear empties the list', cleared.ok === true && cleared.count === 0, JSON.stringify(cleared))
-check('prompt goes quiet after clearing', prompts.get('dsh-sidebar-element-picker').text() === '')
+check('prompt goes quiet after clearing', prompts.get('dsh-sidebar-browser').text() === '')
 
 const status = await invoke('browser-status', { sessionId: 's1' })
 check('browser-status reports the open pages', status.ok === true && status.running === true && status.count === 2, JSON.stringify(status))

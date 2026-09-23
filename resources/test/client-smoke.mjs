@@ -214,6 +214,10 @@ const calls = []
 globalThis.window = {
   location: { origin: 'http://127.0.0.1:43129', protocol: 'http:', hostname: '127.0.0.1' },
   localStorage: {
+    get length() {
+      return storage.size
+    },
+    key: (index) => [...storage.keys()][index] ?? null,
     getItem: (key) => (storage.has(key) ? storage.get(key) : null),
     setItem: (key, value) => storage.set(key, value),
     removeItem: (key) => storage.delete(key),
@@ -227,7 +231,7 @@ globalThis.window = {
   },
   __ModuleLoader__: {
     load(definition) {
-      check('bundle declares its id', definition.id === 'dsh-sidebar-element-picker', definition.id)
+      check('bundle declares its id', definition.id === 'dsh-sidebar-browser', definition.id)
       globalThis.__loaded = definition.factory((specifier) => {
         if (specifier === 'react') return React
         throw new Error(`unexpected require: ${specifier}`)
@@ -396,9 +400,22 @@ async function settle(store) {
 
 // -------------------------------------------------------------------- the run
 
+// What an install upgraded from the pre-rename bundle holds: keys under the old
+// package id, seeded before the import so the one-shot migration inside `apply`
+// meets exactly this. Deleting them on `apply` would silently log the user out
+// of every site the port map pointed at.
+storage.set('dsh-sidebar-element-picker:url', 'http://localhost:8081/review')
+storage.set('dsh-sidebar-element-picker:ports', JSON.stringify({ 'http://localhost:8081': 45674 }))
+storage.set('dsh-sidebar-element-picker:tabs:legacy-session', JSON.stringify([{ id: 't1' }]))
+// A value the renamed bundle already wrote must win over the stale one.
+storage.set('dsh-sidebar-element-picker:zoom', 'legacy-zoom')
+storage.set('dsh-sidebar-browser:zoom', 'current-zoom')
+// Another plugin shares this origin and must not be touched.
+storage.set('other-plugin:flag', 'keep-me')
+
 await import('../../lib/client.js')
 const plugin = globalThis.__loaded
-check('bundle exports the plugin name', plugin.name === 'dsh-sidebar-element-picker', plugin.name)
+check('bundle exports the plugin name', plugin.name === 'dsh-sidebar-browser', plugin.name)
 check('bundle declares the slots service', Array.isArray(plugin.inject) && plugin.inject.includes('slots'), String(plugin.inject))
 
 const slotRegistrations = []
@@ -442,11 +459,23 @@ const ctx = {
 
 plugin.apply(ctx)
 
+// ------------------------------------------- migrating the pre-rename storage
+
+check('the remembered address survives the rename', storage.get('dsh-sidebar-browser:url') === 'http://localhost:8081/review', storage.get('dsh-sidebar-browser:url'))
+check('the port memory survives the rename', storage.get('dsh-sidebar-browser:ports') === JSON.stringify({ 'http://localhost:8081': 45674 }), storage.get('dsh-sidebar-browser:ports'))
+check("one conversation's tabs survive the rename", storage.get('dsh-sidebar-browser:tabs:legacy-session') === JSON.stringify([{ id: 't1' }]), storage.get('dsh-sidebar-browser:tabs:legacy-session'))
+check('a value already under the new name wins over the stale one', storage.get('dsh-sidebar-browser:zoom') === 'current-zoom', storage.get('dsh-sidebar-browser:zoom'))
+check('the old namespace is left empty', [...storage.keys()].every((key) => !key.startsWith('dsh-sidebar-element-picker:')), [...storage.keys()].filter((key) => key.startsWith('dsh-sidebar-element-picker:')).join(', '))
+check("another plugin's keys are untouched", storage.get('other-plugin:flag') === 'keep-me')
+check('the migration records that it ran', storage.has('dsh-sidebar-browser:migrated-from-element-picker'))
+// Give the rest of the suite the empty store it assumes.
+for (const key of ['dsh-sidebar-browser:url', 'dsh-sidebar-browser:ports', 'dsh-sidebar-browser:tabs:legacy-session', 'dsh-sidebar-browser:zoom', 'dsh-sidebar-browser:migrated-from-element-picker']) storage.delete(key)
+
 check('composer seat is claimed', slotRegistrations.some((entry) => entry.definition && entry.definition.name === 'conversation.input.left'))
 check('tab type is registered as a native page', registryCalls.length === 1 && registryCalls[0].kind === 'browser', JSON.stringify(registryCalls[0]?.kind))
-check('tab type id is namespaced', registryCalls[0]?.id === 'dsh-sidebar-element-picker:browser', registryCalls[0]?.id)
+check('tab type id is namespaced', registryCalls[0]?.id === 'dsh-sidebar-browser:browser', registryCalls[0]?.id)
 check('tab type carries a guide entry', registryCalls[0]?.guide?.[0]?.title() === '浏览器')
-check('tab body is registered under that id', slotRegistrations.some((entry) => entry.definition && entry.definition.name === 'sidebar.right.pane.tab' && entry.definition.key === 'dsh-sidebar-element-picker:browser'))
+check('tab body is registered under that id', slotRegistrations.some((entry) => entry.definition && entry.definition.name === 'sidebar.right.pane.tab' && entry.definition.key === 'dsh-sidebar-browser:browser'))
 check('tab chip title is registered', slotRegistrations.some((entry) => entry.definition && entry.definition.name === 'sidebar.right.pane.tab.title'))
 
 const pickerComponent = slotRegistrations.find((entry) => entry.definition && entry.definition.name === 'conversation.input.left').component
@@ -504,7 +533,7 @@ check('a second click still reveals the tab', calls.filter((call) => call.method
 // ------------------------------------------------------ the panel: live state
 
 const fromComposer = await mount(panelComponent, panelProps('s1'))
-const composerTabs = findAll(fromComposer.tree, byClass('dsh-sep-tab'))
+const composerTabs = findAll(fromComposer.tree, byClass('dsh-sb-tab'))
 check('the panel shows the page the composer opened', composerTabs.length === 1, String(composerTabs.length))
 check('the composer’s page is the active one', composerTabs[0].props['data-active'] === 'true')
 check('the composer’s page is framed on a proxy port', String(framesOf(fromComposer.tree)[0].props.src).includes('127.0.0.1:45671'), framesOf(fromComposer.tree)[0].props.src)
@@ -513,81 +542,81 @@ check('the composer’s page is framed on a proxy port', String(framesOf(fromCom
 
 // A browser with a known address opens it without being asked: the panel exists
 // to show a page, not to ask permission to show one.
-storage.set('dsh-sidebar-element-picker:url', 'http://localhost:3000/admin')
+storage.set('dsh-sidebar-browser:url', 'http://localhost:3000/admin')
 storage.set(
-  'dsh-sidebar-element-picker:history',
+  'dsh-sidebar-browser:history',
   JSON.stringify([{ url: 'http://localhost:3000/admin', title: '后台' }]),
 )
 const auto = await mount(panelComponent, panelProps('s3', 'tab3'))
-check('an empty browser opens the remembered address by itself', findAll(auto.tree, byClass('dsh-sep-tab')).length === 1, String(findAll(auto.tree, byClass('dsh-sep-tab')).length))
+check('an empty browser opens the remembered address by itself', findAll(auto.tree, byClass('dsh-sb-tab')).length === 1, String(findAll(auto.tree, byClass('dsh-sb-tab')).length))
 check('no start page is shown when an address is known', find(auto.tree, (node) => node.type === 'form') === undefined)
 check('the composer-less open is not treated as a new page', calls.filter((call) => call.method === 'browser-open').length === 2, String(calls.filter((call) => call.method === 'browser-open').length))
 
 const browserTabs = browsers.get('s3').tabs
 const frames = framesOf(auto.tree)
-check('the frame is on a proxy port of the GUI hostname', String(frames[0].props.src).startsWith(`http://127.0.0.1:${browserTabs[0].port}/__dsh_picker__/chrome.html`), frames[0].props.src)
+check('the frame is on a proxy port of the GUI hostname', String(frames[0].props.src).startsWith(`http://127.0.0.1:${browserTabs[0].port}/__dsh_shell__/chrome.html`), frames[0].props.src)
 check('the frame keeps the target path', String(frames[0].props.src).includes('p=%2Fadmin'), frames[0].props.src)
 check('the frame is visible', frames[0].props['data-hidden'] === 'false')
 check('frame denies top navigation', !String(frames[0].props.sandbox).includes('allow-top-navigation'), frames[0].props.sandbox)
 check('frame is same-origin to its own shell', String(frames[0].props.sandbox).includes('allow-same-origin'))
-check('a new-tab control exists', find(auto.tree, byClass('dsh-sep-newtab')) !== undefined)
-check('the picked count is seeded from the host', find(auto.tree, byClass('dsh-sep-stripTools')).props.children[0].props.children === '已拾取 2')
-check('the open pages are mirrored into local storage', storage.has('dsh-sidebar-element-picker:tabs:s3'))
+check('a new-tab control exists', find(auto.tree, byClass('dsh-sb-newtab')) !== undefined)
+check('the picked count is seeded from the host', find(auto.tree, byClass('dsh-sb-stripTools')).props.children[0].props.children === '已拾取 2')
+check('the open pages are mirrored into local storage', storage.has('dsh-sidebar-browser:tabs:s3'))
 
 // ------------------------------------------- the panel: the start page
 
 // Only a browser that has never been used anywhere shows a launcher.
-storage.delete('dsh-sidebar-element-picker:url')
-storage.delete('dsh-sidebar-element-picker:history')
+storage.delete('dsh-sidebar-browser:url')
+storage.delete('dsh-sidebar-browser:history')
 const first = await mount(panelComponent, panelProps('s4', 'tab4'))
 check('a never-used browser shows the start page', find(first.tree, (node) => node.type === 'form') !== undefined)
 check('the start page documents the placeholder syntax', JSON.stringify(first.tree).includes('[标签][DOMn]'))
-find(first.tree, byClass('dsh-sep-input')).props.onChange({ target: { value: 'localhost:3000/admin' } })
+find(first.tree, byClass('dsh-sb-input')).props.onChange({ target: { value: 'localhost:3000/admin' } })
 await settle(first)
 find(first.tree, (node) => node.type === 'form').props.onSubmit({ preventDefault() {} })
 await settle(first)
-check('submitting the start page opens a page', findAll(first.tree, byClass('dsh-sep-tab')).length === 1, String(findAll(first.tree, byClass('dsh-sep-tab')).length))
-check('the opened address is remembered', storage.get('dsh-sidebar-element-picker:url') === 'http://localhost:3000/admin', String(storage.get('dsh-sidebar-element-picker:url')))
-check('the opened address enters the recent list', JSON.parse(storage.get('dsh-sidebar-element-picker:history'))[0].url === 'http://localhost:3000/admin')
+check('submitting the start page opens a page', findAll(first.tree, byClass('dsh-sb-tab')).length === 1, String(findAll(first.tree, byClass('dsh-sb-tab')).length))
+check('the opened address is remembered', storage.get('dsh-sidebar-browser:url') === 'http://localhost:3000/admin', String(storage.get('dsh-sidebar-browser:url')))
+check('the opened address enters the recent list', JSON.parse(storage.get('dsh-sidebar-browser:history'))[0].url === 'http://localhost:3000/admin')
 
 // Closing every page lands back on the start page, where the recent list is the
 // useful part.
 const onlyTab = browsers.get('s4').tabs[0]
 storage.set(
-  'dsh-sidebar-element-picker:history',
+  'dsh-sidebar-browser:history',
   JSON.stringify([
     { url: 'http://localhost:3000/admin?section=shop-products', title: '商品' },
     { url: 'http://localhost:3000/admin', title: '后台' },
   ]),
 )
-storage.delete('dsh-sidebar-element-picker:url')
+storage.delete('dsh-sidebar-browser:url')
 const relaunch = await mount(panelComponent, panelProps('s6', 'tab6'))
-check('a browser with history opens the most recent address', findAll(relaunch.tree, byClass('dsh-sep-tab')).length === 1, JSON.stringify(browsers.get('s6').tabs.map((tab) => tab.url)))
+check('a browser with history opens the most recent address', findAll(relaunch.tree, byClass('dsh-sb-tab')).length === 1, JSON.stringify(browsers.get('s6').tabs.map((tab) => tab.url)))
 check('the auto-opened address is the newest history entry', browsers.get('s6').tabs[0].url === 'http://localhost:3000/admin?section=shop-products', browsers.get('s6').tabs[0].url)
 void onlyTab
 
 // The start page lists the recent visits and the saved logins.
-storage.delete('dsh-sidebar-element-picker:url')
-storage.delete('dsh-sidebar-element-picker:history')
+storage.delete('dsh-sidebar-browser:url')
+storage.delete('dsh-sidebar-browser:history')
 storage.set(
-  'dsh-sidebar-element-picker:credentials',
+  'dsh-sidebar-browser:credentials',
   JSON.stringify([{ origin: 'http://localhost:8081', username: 'ops', password: 's3cret', updatedAt: 1 }]),
 )
 const launcher = await mount(panelComponent, panelProps('s7', 'tab7'))
-const rows = findAll(launcher.tree, byClass('dsh-sep-itemMain'))
+const rows = findAll(launcher.tree, byClass('dsh-sb-itemMain'))
 check('the start page lists a recent row per address', rows.length === 0, String(rows.length))
-const loginRows = findAll(launcher.tree, byClass('dsh-sep-itemTitle')).map((node) => node.props.children)
+const loginRows = findAll(launcher.tree, byClass('dsh-sb-itemTitle')).map((node) => node.props.children)
 check('the start page lists a saved login', loginRows.includes('ops'), JSON.stringify(loginRows))
 check('the saved login shows its site', JSON.stringify(launcher.tree).includes('localhost:8081'))
-findAll(launcher.tree, byClass('dsh-sep-itemX'))[0].props.onClick()
+findAll(launcher.tree, byClass('dsh-sb-itemX'))[0].props.onClick()
 await settle(launcher)
-const remainingLogins = readStored('dsh-sidebar-element-picker:credentials')
+const remainingLogins = readStored('dsh-sidebar-browser:credentials')
 check('a saved login can be forgotten', !Array.isArray(remainingLogins) || remainingLogins.length === 0, JSON.stringify(remainingLogins))
-check('forgetting shows a notice', JSON.stringify(launcher.tree).includes('已删除'), JSON.stringify(findAll(launcher.tree, byClass('dsh-sep-notice')).map((node) => node.props.children)))
+check('forgetting shows a notice', JSON.stringify(launcher.tree).includes('已删除'), JSON.stringify(findAll(launcher.tree, byClass('dsh-sb-notice')).map((node) => node.props.children)))
 
 // The port a site used is remembered, and asked for again: that is what keeps a
 // site on the same browser origin (and therefore signed in) across a restart.
-check('the port each origin used is remembered', readStored('dsh-sidebar-element-picker:ports')['http://localhost:3000'] > 0, JSON.stringify(readStored('dsh-sidebar-element-picker:ports')))
+check('the port each origin used is remembered', readStored('dsh-sidebar-browser:ports')['http://localhost:3000'] > 0, JSON.stringify(readStored('dsh-sidebar-browser:ports')))
 const reopenCall = calls.filter((call) => call.method === 'browser-open' && call.params.preferredPort !== undefined).pop()
 check('an open asks for the remembered port back', reopenCall !== undefined, JSON.stringify(reopenCall?.params ?? null))
 
@@ -595,12 +624,12 @@ check('an open asks for the remembered port back', reopenCall !== undefined, JSO
 const liveFrames = framesOf(auto.tree)
 dispatchMessage({
   source: liveFrames[0].contentWindow,
-  data: { __dshPicker: true, source: 'dsh-sidebar-element-picker-shell', ev: 'openTab', url: 'http://127.0.0.1:5200/other' },
+  data: { __dshPicker: true, source: 'dsh-sidebar-browser-shell', ev: 'openTab', url: 'http://127.0.0.1:5200/other' },
 })
 await settle(auto)
 const frames2 = framesOf(auto.tree)
 check('a second page adds a second frame', frames2.length === 2, String(frames2.length))
-check('every frame stays mounted so neither reloads', frames2.every((frame) => String(frame.props.src).includes('__dsh_picker__')))
+check('every frame stays mounted so neither reloads', frames2.every((frame) => String(frame.props.src).includes('__dsh_shell__')))
 check('exactly one frame is visible', frames2.filter((frame) => frame.props['data-hidden'] === 'false').length === 1)
 const secondPage = browsers.get('s3').tabs[1]
 check('the new page is on its own port', secondPage.port !== browserTabs[0].port, `${browserTabs[0].port} vs ${secondPage.port}`)
@@ -609,7 +638,7 @@ check('the new page keeps its own path', secondPage.path === '/other', secondPag
 // Zoom and device state reported by a shell are stored on the host.
 dispatchMessage({
   source: frames2[1].contentWindow,
-  data: { __dshPicker: true, source: 'dsh-sidebar-element-picker-shell', ev: 'view', zoom: 0.5, deviceKey: 'phone-393', landscape: true },
+  data: { __dshPicker: true, source: 'dsh-sidebar-browser-shell', ev: 'view', zoom: 0.5, deviceKey: 'phone-393', landscape: true },
 })
 const viewCall = calls.filter((call) => call.method === 'browser-view').pop()
 check('a shell zoom change is stored on the host', viewCall !== undefined && viewCall.params.zoom === 0.5, JSON.stringify(viewCall?.params))
@@ -626,7 +655,7 @@ check('a restored shell URL carries the device', String(restoredSecond.props.src
 check('a restored shell URL carries the orientation', String(restoredSecond.props.src).includes('l=1'), restoredSecond.props.src)
 
 // Switching pages hides a frame without unmounting it.
-findAll(remounted.tree, byClass('dsh-sep-tab')).filter((node) => node.props['data-active'] === 'false')[0].props.onClick()
+findAll(remounted.tree, byClass('dsh-sb-tab')).filter((node) => node.props['data-active'] === 'false')[0].props.onClick()
 await settle(remounted)
 const frames4 = framesOf(remounted.tree)
 check('switching pages keeps both frames alive', frames4.length === 2, String(frames4.length))
@@ -637,21 +666,21 @@ check('switching pages changes which frame is visible', frames4.filter((frame) =
 const loginFrame = framesOf(remounted.tree).filter((frame) => frame.props['data-hidden'] === 'false')[0]
 dispatchMessage({
   source: loginFrame.contentWindow,
-  data: { __dshPicker: true, source: 'dsh-sidebar-element-picker-shell', ev: 'saveCredential', origin: 'http://localhost:3000', username: 'ops', password: 'hunter2' },
+  data: { __dshPicker: true, source: 'dsh-sidebar-browser-shell', ev: 'saveCredential', origin: 'http://localhost:3000', username: 'ops', password: 'hunter2' },
 })
 await settle(remounted)
-const saveBar = find(remounted.tree, byClass('dsh-sep-savebar'))
+const saveBar = find(remounted.tree, byClass('dsh-sb-savebar'))
 check('a submitted login raises a save prompt', saveBar !== undefined)
 check('the prompt names the site and account', JSON.stringify(saveBar).includes('localhost:3000') && JSON.stringify(saveBar).includes('ops'))
-find(remounted.tree, byClass('dsh-sep-saveGo')).props.onClick()
+find(remounted.tree, byClass('dsh-sb-saveGo')).props.onClick()
 await settle(remounted)
-const storedLogins = readStored('dsh-sidebar-element-picker:credentials')
+const storedLogins = readStored('dsh-sidebar-browser:credentials')
 check('saving stores the login', storedLogins.length === 1 && storedLogins[0].password === 'hunter2', JSON.stringify(storedLogins))
-check('the prompt closes after saving', find(remounted.tree, byClass('dsh-sep-savebar')) === undefined)
+check('the prompt closes after saving', find(remounted.tree, byClass('dsh-sb-savebar')) === undefined)
 check('a shell asking for logins receives them', calls.some((call) => call.method !== undefined))
 dispatchMessage({
   source: loginFrame.contentWindow,
-  data: { __dshPicker: true, source: 'dsh-sidebar-element-picker-shell', ev: 'needCredentials', origin: 'http://localhost:3000' },
+  data: { __dshPicker: true, source: 'dsh-sidebar-browser-shell', ev: 'needCredentials', origin: 'http://localhost:3000' },
 })
 await settle(remounted)
 check('asking for credentials is answered', pushed.some((message) => message.cmd === 'credentials' && message.entries.length === 1), JSON.stringify(pushed.slice(-2)))
@@ -661,12 +690,12 @@ check('asking for credentials is answered', pushed.some((message) => message.cmd
 const visibleFrame = () => framesOf(remounted.tree).filter((frame) => frame.props['data-hidden'] === 'false')[0]
 const hiddenFrame = () => framesOf(remounted.tree).filter((frame) => frame.props['data-hidden'] === 'true')[0]
 
-dispatchMessage({ source: { stranger: true }, data: { __dshPicker: true, source: 'dsh-sidebar-element-picker-shell', ev: 'picked', domId: 'DOM9', label: '伪造' } })
+dispatchMessage({ source: { stranger: true }, data: { __dshPicker: true, source: 'dsh-sidebar-browser-shell', ev: 'picked', domId: 'DOM9', label: '伪造' } })
 check('a pick from another window is ignored', draft === '', draft)
 
 /** @returns {boolean} whether a strip chip currently shows this title. */
 const titleText = (tree, text) =>
-  findAll(tree, byClass('dsh-sep-tabTitle')).some((node) => String(node.props.children).includes(text))
+  findAll(tree, byClass('dsh-sb-tabTitle')).some((node) => String(node.props.children).includes(text))
 
 const panelComposer = await mount(pickerComponent, {
   sessionId: 's3',
@@ -682,19 +711,19 @@ check('a composer mounted for another conversation is separate', find(panelCompo
 const picked = visibleFrame()
 dispatchMessage({
   source: picked.contentWindow,
-  data: { __dshPicker: true, source: 'dsh-sidebar-element-picker-shell', ev: 'picked', domId: 'DOM1', label: '提交订单', element: { tag: 'button' } },
+  data: { __dshPicker: true, source: 'dsh-sidebar-browser-shell', ev: 'picked', domId: 'DOM1', label: '提交订单', element: { tag: 'button' } },
 })
 check('a real pick lands in the draft box', draft === '[提交订单][DOM1]', JSON.stringify(draft))
 
 dispatchMessage({
   source: picked.contentWindow,
-  data: { __dshPicker: true, source: 'dsh-sidebar-element-picker-shell', ev: 'picked', domId: 'DOM1', label: '提交订单' },
+  data: { __dshPicker: true, source: 'dsh-sidebar-browser-shell', ev: 'picked', domId: 'DOM1', label: '提交订单' },
 })
 check('the same pick delivered twice is inserted once', draft === '[提交订单][DOM1]', JSON.stringify(draft))
 
 dispatchMessage({
   source: hiddenFrame().contentWindow,
-  data: { __dshPicker: true, source: 'dsh-sidebar-element-picker-shell', ev: 'picked', domId: 'DOM2', label: '标题' },
+  data: { __dshPicker: true, source: 'dsh-sidebar-browser-shell', ev: 'picked', domId: 'DOM2', label: '标题' },
 })
 check('a pick from a background page also lands', draft === '[提交订单][DOM1]\n[标题][DOM2]', JSON.stringify(draft))
 
@@ -702,19 +731,19 @@ check('a pick from a background page also lands', draft === '[提交订单][DOM1
 
 dispatchMessage({
   source: picked.contentWindow,
-  data: { __dshPicker: true, source: 'dsh-sidebar-element-picker-shell', ev: 'url', url: 'http://127.0.0.1:5200/other?tab=2', title: '规格' },
+  data: { __dshPicker: true, source: 'dsh-sidebar-browser-shell', ev: 'url', url: 'http://127.0.0.1:5200/other?tab=2', title: '规格' },
 })
 const syncCall = calls.filter((call) => call.method === 'browser-sync').pop()
 check('an in-page navigation is synced to the host', syncCall !== undefined && syncCall.params.title === '规格', JSON.stringify(syncCall?.params))
 check('the sync does not change the frame source', visibleFrame().props.src === picked.props.src)
 await settle(remounted)
-check('the sync updates the page title in the strip', titleText(remounted.tree, '规格'), JSON.stringify(findAll(remounted.tree, byClass('dsh-sep-tabTitle')).map((node) => node.props.children)))
+check('the sync updates the page title in the strip', titleText(remounted.tree, '规格'), JSON.stringify(findAll(remounted.tree, byClass('dsh-sb-tabTitle')).map((node) => node.props.children)))
 
 // A re-render for any other reason must not re-point the frame.
 const srcBeforePick = visibleFrame().props.src
 dispatchMessage({
   source: hiddenFrame().contentWindow,
-  data: { __dshPicker: true, source: 'dsh-sidebar-element-picker-shell', ev: 'picked', domId: 'DOM3', label: '再一个' },
+  data: { __dshPicker: true, source: 'dsh-sidebar-browser-shell', ev: 'picked', domId: 'DOM3', label: '再一个' },
 })
 await settle(remounted)
 check('a pick after an in-page navigation does not reload the page', visibleFrame().props.src === srcBeforePick, `${srcBeforePick} → ${visibleFrame().props.src}`)
@@ -723,7 +752,7 @@ check('a pick after an in-page navigation does not reload the page', visibleFram
 // allocates the port that origin needs.
 dispatchMessage({
   source: picked.contentWindow,
-  data: { __dshPicker: true, source: 'dsh-sidebar-element-picker-shell', ev: 'navigate', url: 'http://localhost:4300/admin' },
+  data: { __dshPicker: true, source: 'dsh-sidebar-browser-shell', ev: 'navigate', url: 'http://localhost:4300/admin' },
 })
 await settle(remounted)
 const navCall = calls.filter((call) => call.method === 'browser-navigate').pop()
@@ -733,7 +762,7 @@ check('the retargeted page is on the new origin', retargetedTab !== undefined, J
 check('the retargeted page moves to a new port', frameForPort(remounted.tree, retargetedTab.port) !== undefined, JSON.stringify(framesOf(remounted.tree).map((frame) => frame.props.src)))
 
 // Closing a page removes its frame.
-findAll(remounted.tree, byClass('dsh-sep-tabClose'))[1].props.onClick({ stopPropagation() {} })
+findAll(remounted.tree, byClass('dsh-sb-tabClose'))[1].props.onClick({ stopPropagation() {} })
 await settle(remounted)
 check('closing a page removes its frame', framesOf(remounted.tree).length === 1)
 

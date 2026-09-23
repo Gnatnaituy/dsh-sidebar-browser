@@ -39,12 +39,12 @@ const check = (name, condition, detail) => {
   if (!condition) failures += 1
 }
 
-const shell = await fetch(`http://127.0.0.1:${session.port}/__dsh_picker__/chrome.html`)
+const shell = await fetch(`http://127.0.0.1:${session.port}/__dsh_shell__/chrome.html`)
 const setCookie = shell.headers.get('set-cookie') ?? ''
 check('shell serves', shell.status === 200)
 check('shell mints capability cookie', setCookie.includes(session.cookieName), setCookie.split(';')[0])
 const cookie = setCookie.split(';')[0]
-check('shell is same-origin framed by itself', (await shell.text()).includes('/__dsh_picker__/chrome.js'))
+check('shell is same-origin framed by itself', (await shell.text()).includes('/__dsh_shell__/chrome.js'))
 
 const denied = await fetch(`http://127.0.0.1:${session.port}/`)
 check('proxying requires the capability cookie', denied.status === 403, `status ${denied.status}`)
@@ -84,14 +84,14 @@ const location = redirect.headers.get('location') ?? ''
 check('a redirect is answered', redirect.status === 302, String(redirect.status))
 check('an absolute redirect is rewritten to the proxy origin', location === '/deep/page?from=go', location)
 
-const pick = await fetch(`http://127.0.0.1:${session.port}/__dsh_picker__/pick`, {
+const pick = await fetch(`http://127.0.0.1:${session.port}/__dsh_shell__/pick`, {
   method: 'POST',
   headers: { cookie, 'content-type': 'application/json' },
   body: JSON.stringify({ label: '提交订单', tag: 'button' }),
 })
 check('pick sink answers', (await pick.json()).domId === 'DOM1')
 
-const missing = await fetch(`http://127.0.0.1:${session.port}/__dsh_picker__/nope`)
+const missing = await fetch(`http://127.0.0.1:${session.port}/__dsh_shell__/nope`)
 check('unknown picker paths 404', missing.status === 404, `status ${missing.status}`)
 
 session.close()

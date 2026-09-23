@@ -37,27 +37,27 @@ const TOKENS = `
 const GLOBE = `<svg width="13" height="13" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.2"/><path d="M2 8h12M8 2c1.8 2 1.8 10 0 12M8 2c-1.8 2-1.8 10 0 12" stroke="currentColor" stroke-width="1.1"/></svg>`
 
 const ROW = (title, url) => `
-  <div class="dsh-sep-item">
-    <button class="dsh-sep-itemMain" type="button">
-      <span class="dsh-sep-itemBadge" aria-hidden="true">${GLOBE}</span>
-      <span class="dsh-sep-itemText">
-        <span class="dsh-sep-itemTitle">${title}</span>
-        <span class="dsh-sep-itemUrl">${url}</span>
+  <div class="dsh-sb-item">
+    <button class="dsh-sb-itemMain" type="button">
+      <span class="dsh-sb-itemBadge" aria-hidden="true">${GLOBE}</span>
+      <span class="dsh-sb-itemText">
+        <span class="dsh-sb-itemTitle">${title}</span>
+        <span class="dsh-sb-itemUrl">${url}</span>
       </span>
     </button>
-    <button class="dsh-sep-itemX" type="button">×</button>
+    <button class="dsh-sb-itemX" type="button">×</button>
   </div>`
 
 const KEY_ROW = (username, site) => `
-  <div class="dsh-sep-item">
-    <span class="dsh-sep-itemBadge isKey" aria-hidden="true">
+  <div class="dsh-sb-item">
+    <span class="dsh-sb-itemBadge isKey" aria-hidden="true">
       <svg width="12" height="12" viewBox="0 0 16 16" fill="none"><circle cx="5.4" cy="10.6" r="2.6" stroke="currentColor" stroke-width="1.3"/><path d="M7.3 8.7 12.6 3.4M10.9 5.1l1.5 1.5M12.4 3.6l1.4 1.4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
     </span>
-    <span class="dsh-sep-itemText">
-      <span class="dsh-sep-itemTitle">${username}</span>
-      <span class="dsh-sep-itemUrl">${site}</span>
+    <span class="dsh-sb-itemText">
+      <span class="dsh-sb-itemTitle">${username}</span>
+      <span class="dsh-sb-itemUrl">${site}</span>
     </span>
-    <button class="dsh-sep-itemX" type="button">×</button>
+    <button class="dsh-sb-itemX" type="button">×</button>
   </div>`
 
 const CROSSHAIR = `<svg width="18" height="18" viewBox="0 0 16 16" fill="none"><path d="M8 1.6v3M8 11.4v3M1.6 8h3M11.4 8h3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><circle cx="8" cy="8" r="3.1" stroke="currentColor" stroke-width="1.4"/><circle cx="8" cy="8" r="0.9" fill="currentColor"/></svg>`
@@ -65,40 +65,40 @@ const KEY = `<svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle
 
 /** The panel body's markup, mirroring `BrowserPanel`'s idle branch. */
 const PANEL = `
-<div class="dsh-sep-pane">
-  <div class="dsh-sep-start">
-    <div class="dsh-sep-hero">
-      <span class="dsh-sep-heroGlyph" aria-hidden="true">${CROSSHAIR}</span>
-      <div class="dsh-sep-heroText">
-        <p class="dsh-sep-heroTitle">打开一个网址开始</p>
-        <p class="dsh-sep-heroHint">在下面的记录里点一个，或者直接输入。</p>
+<div class="dsh-sb-pane">
+  <div class="dsh-sb-start">
+    <div class="dsh-sb-hero">
+      <span class="dsh-sb-heroGlyph" aria-hidden="true">${CROSSHAIR}</span>
+      <div class="dsh-sb-heroText">
+        <p class="dsh-sb-heroTitle">打开一个网址开始</p>
+        <p class="dsh-sb-heroHint">在下面的记录里点一个，或者直接输入。</p>
       </div>
     </div>
-    <form class="dsh-sep-composer">
-      <input class="dsh-sep-input" value="http://localhost:3000/admin" />
-      <button class="dsh-sep-open" type="button">打开</button>
+    <form class="dsh-sb-composer">
+      <input class="dsh-sb-input" value="http://localhost:3000/admin" />
+      <button class="dsh-sb-open" type="button">打开</button>
     </form>
-    <section class="dsh-sep-section">
-      <div class="dsh-sep-sectionHead"><span>最近访问</span><button class="dsh-sep-sectionAction" type="button">清空</button></div>
-      <div class="dsh-sep-list">
+    <section class="dsh-sb-section">
+      <div class="dsh-sb-sectionHead"><span>最近访问</span><button class="dsh-sb-sectionAction" type="button">清空</button></div>
+      <div class="dsh-sb-list">
         ${ROW('商品管理 · 规格', 'localhost:3000/admin?section=shop-products')}
         ${ROW('房型库存', 'localhost:3000/admin?section=hotel-inventory')}
         ${ROW('录制列表', 'localhost:8081/recordings')}
-        <div class="dsh-sep-item">
-          <button class="dsh-sep-itemMain" type="button">
-            <span class="dsh-sep-itemBadge" aria-hidden="true">${GLOBE}</span>
-            <span class="dsh-sep-itemText">
-              <span class="dsh-sep-itemTitle">localhost:5173</span>
-              <span class="dsh-sep-itemUrl">/draft/42</span>
+        <div class="dsh-sb-item">
+          <button class="dsh-sb-itemMain" type="button">
+            <span class="dsh-sb-itemBadge" aria-hidden="true">${GLOBE}</span>
+            <span class="dsh-sb-itemText">
+              <span class="dsh-sb-itemTitle">localhost:5173</span>
+              <span class="dsh-sb-itemUrl">/draft/42</span>
             </span>
           </button>
-          <button class="dsh-sep-itemX" type="button">×</button>
+          <button class="dsh-sb-itemX" type="button">×</button>
         </div>
       </div>
     </section>
-    <section class="dsh-sep-section">
-      <div class="dsh-sep-sectionHead"><span>已保存的账号密码</span><span class="dsh-sep-sectionCount">2</span></div>
-      <div class="dsh-sep-list">
+    <section class="dsh-sb-section">
+      <div class="dsh-sb-sectionHead"><span>已保存的账号密码</span><span class="dsh-sb-sectionCount">2</span></div>
+      <div class="dsh-sb-list">
         ${KEY_ROW('ops', 'localhost:8081')}
         ${KEY_ROW('admin', 'localhost:3000')}
       </div>
@@ -108,25 +108,25 @@ const PANEL = `
 
 /** The page area with the save prompt, mirroring the non-empty branch. */
 const PANEL_WITH_PROMPT = `
-<div class="dsh-sep-pane">
-  <div class="dsh-sep-savebar">
-    <span class="dsh-sep-saveGlyph" aria-hidden="true">${KEY}</span>
-    <div class="dsh-sep-saveText">
-      <span class="dsh-sep-saveTitle">保存 localhost:8081 的账号密码？</span>
-      <span class="dsh-sep-saveSub">账号：ops</span>
+<div class="dsh-sb-pane">
+  <div class="dsh-sb-savebar">
+    <span class="dsh-sb-saveGlyph" aria-hidden="true">${KEY}</span>
+    <div class="dsh-sb-saveText">
+      <span class="dsh-sb-saveTitle">保存 localhost:8081 的账号密码？</span>
+      <span class="dsh-sb-saveSub">账号：ops</span>
     </div>
-    <button class="dsh-sep-saveGo" type="button">保存</button>
-    <button class="dsh-sep-saveSkip" type="button">不用</button>
+    <button class="dsh-sb-saveGo" type="button">保存</button>
+    <button class="dsh-sb-saveSkip" type="button">不用</button>
   </div>
-  <div class="dsh-sep-strip">
-    <div class="dsh-sep-tabs">
-      <button class="dsh-sep-tab" data-active="true" type="button"><span class="dsh-sep-tabTitle">录制列表</span><span class="dsh-sep-tabClose">×</span></button>
-      <button class="dsh-sep-tab" data-active="false" type="button"><span class="dsh-sep-tabTitle">商品管理 · 规格</span><span class="dsh-sep-tabClose">×</span></button>
-      <button class="dsh-sep-newtab" type="button">＋</button>
+  <div class="dsh-sb-strip">
+    <div class="dsh-sb-tabs">
+      <button class="dsh-sb-tab" data-active="true" type="button"><span class="dsh-sb-tabTitle">录制列表</span><span class="dsh-sb-tabClose">×</span></button>
+      <button class="dsh-sb-tab" data-active="false" type="button"><span class="dsh-sb-tabTitle">商品管理 · 规格</span><span class="dsh-sb-tabClose">×</span></button>
+      <button class="dsh-sb-newtab" type="button">＋</button>
     </div>
-    <div class="dsh-sep-stripTools"><span>已拾取 3</span><button class="dsh-sep-link" type="button">清空</button></div>
+    <div class="dsh-sb-stripTools"><span>已拾取 3</span><button class="dsh-sb-link" type="button">清空</button></div>
   </div>
-  <div class="dsh-sep-frames" style="background:#eef0f4">
+  <div class="dsh-sb-frames" style="background:#eef0f4">
     <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#9aa0ab;font-size:12px">（页面在这里）</div>
   </div>
 </div>`

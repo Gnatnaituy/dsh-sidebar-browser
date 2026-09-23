@@ -1,5 +1,5 @@
-url: https://github.com/Gnatnaituy/dsh_sidebar_element_picker
-name: Gnatnaituy/dsh_sidebar_element_picker
+url: https://github.com/Gnatnaituy/dsh-sidebar-browser
+name: Gnatnaituy/dsh-sidebar-browser
 category: browser
 description:
   en: 'A browser panel in the right sidebar that opens a site through a per-origin loopback proxy and picks page elements into [label][DOMn] placeholders that the model reads with a tool, with tabs, page zoom, phone and tablet viewport preview, and saved logins.'
