@@ -81,24 +81,28 @@ const LOGIN_PAGE = `<!doctype html>
  * as a wider target). It is still an ordinary response from this fixture: the
  * screenshots show the real proxy, the real shell and a real render of this
  * document, never a drawing.
+ *
+ * The copy is deliberately generic: these screenshots are published in the
+ * README and the plugin listing, so nothing in them may name a real customer,
+ * brand or product line.
  */
 const DEMO_PAGE = `<!doctype html>
 <html lang="zh-CN">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>高县文旅 · 商品管理</title>
+    <title>示例商城 · 商品管理</title>
     <link rel="stylesheet" href="/assets/demo.css" />
   </head>
   <body>
     <header class="top">
-      <span class="brand">高县文旅 · 管理后台</span>
+      <span class="brand">示例商城 · 管理后台</span>
       <span class="who">ops</span>
     </header>
     <div class="shell">
       <nav class="side">
         <a class="on" href="#">商品管理</a>
-        <a href="#">房型库存</a>
+        <a href="#">库存</a>
         <a href="#">订单</a>
         <a href="#">设置</a>
       </nav>
@@ -106,7 +110,7 @@ const DEMO_PAGE = `<!doctype html>
         <h1>商品规格</h1>
         <form class="card" id="spec-form">
           <label for="name">规格名称</label>
-          <input id="name" value="花开高县 · 双人票" />
+          <input id="name" value="示例商品 · 标准装" />
           <label for="price">规格售价（元）</label>
           <input id="price" value="128" />
           <div class="row">
@@ -117,9 +121,9 @@ const DEMO_PAGE = `<!doctype html>
         <table class="card">
           <thead><tr><th>规格</th><th>SKU 编码</th><th>售价</th><th>库存</th></tr></thead>
           <tbody>
-            <tr><td>双人票</td><td>GX-2P</td><td>128</td><td>320</td></tr>
-            <tr><td>亲子票</td><td>GX-FAM</td><td>198</td><td>150</td></tr>
-            <tr><td>团购票</td><td>GX-GRP</td><td>98</td><td>860</td></tr>
+            <tr><td>标准装</td><td>SKU-101</td><td>128</td><td>320</td></tr>
+            <tr><td>家庭装</td><td>SKU-102</td><td>198</td><td>150</td></tr>
+            <tr><td>组合装</td><td>SKU-103</td><td>98</td><td>860</td></tr>
           </tbody>
         </table>
       </main>
