@@ -1,0 +1,6 @@
+url: https://github.com/Gnatnaituy/dsh_sidebar_element_picker
+name: Gnatnaituy/dsh_sidebar_element_picker
+category: browser
+description:
+  en: 'A browser panel in the right sidebar that opens a site through a per-origin loopback proxy and picks page elements into [label][DOMn] placeholders that the model reads with a tool, with tabs, page zoom, phone and tablet viewport preview, and saved logins.'
+  zh: '在右侧栏里内嵌浏览器：每个目标源一个回环反向代理，点选页面元素生成 [标签][DOMn] 引用供模型用工具读取；另有多标签页、页面缩放、手机/平板视口预览与登录账号保存。'

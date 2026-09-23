@@ -1,0 +1,69 @@
+{
+  "name": "dsh-sidebar-element-picker",
+  "version": "0.1.0",
+  "description": "DSH web bundle: an element picker that lives in the right sidebar. Browse any site inside a sidebar tab — no separate browser window — click an element, and reference it in the conversation.",
+  "type": "module",
+  "main": "lib/index.js",
+  "exports": {
+    ".": "./lib/index.js",
+    "./client": "./lib/client.js",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib",
+    "resources/proxy.js",
+    "resources/chrome.html",
+    "resources/chrome.css",
+    "resources/chrome.js",
+    "cordis.patch.yml",
+    "README.md",
+    "LICENSE"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "external": []
+    }
+  },
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "deepseek",
+    "deepseek-harness",
+    "harness",
+    "cordis",
+    "plugin",
+    "sidebar",
+    "browser",
+    "element-picker",
+    "devtools",
+    "responsive",
+    "playwright"
+  ],
+  "license": "MIT",
+  "scripts": {
+    "install:profile": "node tools/install-into-profile.mjs",
+    "install:profile:dry": "node tools/install-into-profile.mjs --dry-run",
+    "test": "node resources/test/proxy-smoke.mjs && node resources/test/tunnel-smoke.mjs && node resources/test/host-smoke.mjs && node resources/test/client-smoke.mjs",
+    "test:browser": "node resources/test/browser-e2e.mjs",
+    "test:all": "npm test && npm run test:browser",
+    "preview:start": "node resources/test/start-page-preview.mjs resources/test/start-page.png",
+    "screenshots": "node tools/make-screenshots.mjs"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Gnatnaituy/dsh_sidebar_element_picker.git"
+  },
+  "homepage": "https://github.com/Gnatnaituy/dsh_sidebar_element_picker#readme",
+  "bugs": {
+    "url": "https://github.com/Gnatnaituy/dsh_sidebar_element_picker/issues"
+  },
+  "author": "Gnatnaituy",
+  "engines": {
+    "node": ">=20"
+  },
+  "packageManager": "pnpm@11.9.0"
+}
