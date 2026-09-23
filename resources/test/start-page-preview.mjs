@@ -82,7 +82,7 @@ const PANEL = `
       <div class="dsh-sb-sectionHead"><span>最近访问</span><button class="dsh-sb-sectionAction" type="button">清空</button></div>
       <div class="dsh-sb-list">
         ${ROW('商品管理 · 规格', 'localhost:3000/admin?section=shop-products')}
-        ${ROW('房型库存', 'localhost:3000/admin?section=hotel-inventory')}
+        ${ROW('订单列表', 'localhost:3000/admin?section=orders')}
         ${ROW('录制列表', 'localhost:8081/recordings')}
         <div class="dsh-sb-item">
           <button class="dsh-sb-itemMain" type="button">

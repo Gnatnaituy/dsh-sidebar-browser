@@ -123,7 +123,10 @@ async function shoot(html, file, size, prepare) {
   await page.close()
 }
 
-const TITLES = ['商品管理 · 高县文旅', 'Fixture 登录']
+// Tab titles mirror what the panel derives from `document.title` of the demo
+// page. Keep them in step with `DEMO_PAGE`, and keep the copy generic: these
+// images are published, so no real brand may appear in them.
+const TITLES = ['示例商城 · 商品管理', 'Fixture 登录']
 const SIZE = { width: 452, height: 692 }
 
 // 1. Browsing through the picker, with an element highlighted before the click.
