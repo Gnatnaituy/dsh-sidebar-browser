@@ -8,7 +8,11 @@ import { existsSync, lstatSync, readFileSync, rmSync, writeFileSync } from 'node
 import { homedir } from 'node:os'
 import { join, resolve } from 'node:path'
 
-const PACKAGE_NAME = 'dsh-sidebar-element-picker'
+const PACKAGE_NAME = 'dsh-sidebar-browser'
+/** Names this package was installed under before the rename. */
+const PREVIOUS_NAMES = ['dsh-sidebar-element-picker']
+/** Every name this package answers to, current one first. */
+const ALL_NAMES = [PACKAGE_NAME, ...PREVIOUS_NAMES]
 const LEGACY_ENTRY_ID = 'webpage-element-picker'
 const LEGACY_PACKAGE = 'dsh-webpage-element-picker'
 
@@ -36,6 +40,11 @@ if (!existsSync(join(profileDir, 'package.json'))) {
 
 // ------------------------------------------------------------------- unmount
 
+// Read before the patch pass: deciding whether a re-enabled legacy entry is
+// still installed needs it, and declaring it further down would be a TDZ error.
+const manifestPath = join(profileDir, 'package.json')
+const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'))
+
 const patchPath = join(profileDir, 'cordis.patch.yml')
 if (existsSync(patchPath)) {
   const patch = readFileSync(patchPath, 'utf8')
@@ -51,9 +60,10 @@ if (existsSync(patchPath)) {
         block.push(lines[j])
         j += 1
       }
-      if (block.some((line) => line.includes(`name: ${PACKAGE_NAME}`))) {
+      const named = ALL_NAMES.find((name) => block.some((line) => line.includes(`name: ${name}`)))
+      if (named !== undefined) {
         while (kept.length > 0 && /^\s*#/.test(kept[kept.length - 1])) kept.pop()
-        say(`cordis.patch.yml -= 挂载 ${PACKAGE_NAME}`)
+        say(`cordis.patch.yml -= 挂载 ${named}`)
         i = j - 1
         continue
       }
@@ -83,28 +93,30 @@ if (existsSync(patchPath)) {
 
 // ---------------------------------------------------------------- dependency
 
-const manifestPath = join(profileDir, 'package.json')
-const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'))
 let changed = false
-if (manifest.dependencies !== undefined && manifest.dependencies[PACKAGE_NAME] !== undefined) {
-  delete manifest.dependencies[PACKAGE_NAME]
-  changed = true
-  say(`dependencies -= ${PACKAGE_NAME}`)
-}
-const bundles = manifest.dsh?.profile?.bundles
-if (Array.isArray(bundles) && bundles.includes(PACKAGE_NAME)) {
-  manifest.dsh.profile.bundles = bundles.filter((entry) => entry !== PACKAGE_NAME)
-  changed = true
-  say(`dsh.profile.bundles -= ${PACKAGE_NAME}`)
+for (const name of ALL_NAMES) {
+  if (manifest.dependencies !== undefined && manifest.dependencies[name] !== undefined) {
+    delete manifest.dependencies[name]
+    changed = true
+    say(`dependencies -= ${name}`)
+  }
+  const bundles = manifest.dsh?.profile?.bundles
+  if (Array.isArray(bundles) && bundles.includes(name)) {
+    manifest.dsh.profile.bundles = bundles.filter((entry) => entry !== name)
+    changed = true
+    say(`dsh.profile.bundles -= ${name}`)
+  }
 }
 if (changed && !dryRun) writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`)
 
 // ---------------------------------------------------------------------- link
 
-const target = join(profileDir, 'node_modules', PACKAGE_NAME)
-if (existsSync(target) || lstatSync(target, { throwIfNoEntry: false }) !== undefined) {
-  say(`删除 ${target}`)
-  if (!dryRun) rmSync(target, { recursive: true, force: true })
+for (const name of ALL_NAMES) {
+  const target = join(profileDir, 'node_modules', name)
+  if (existsSync(target) || lstatSync(target, { throwIfNoEntry: false }) !== undefined) {
+    say(`删除 ${target}`)
+    if (!dryRun) rmSync(target, { recursive: true, force: true })
+  }
 }
 
 say('完成。loader 会热卸载；硬刷新浏览器即可。')

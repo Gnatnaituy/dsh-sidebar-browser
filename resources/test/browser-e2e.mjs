@@ -68,7 +68,7 @@ const panel = http.createServer((_req, res) => {
   res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' })
   res.end(`<!doctype html><meta charset="utf-8"><title>panel</title>
 <style>html,body{margin:0;height:100%}iframe{width:100%;height:100vh;border:0}</style>
-<iframe id="shell" src="http://127.0.0.1:${session.port}/__dsh_picker__/chrome.html" sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-modals allow-downloads"></iframe>
+<iframe id="shell" src="http://127.0.0.1:${session.port}/__dsh_shell__/chrome.html" sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-modals allow-downloads"></iframe>
 <script>
   window.picks = [];
   window.shellState = {};
@@ -90,7 +90,7 @@ const panel = http.createServer((_req, res) => {
       window.shellAsks.push(data.origin);
       event.source.postMessage({
         __dshPicker: true,
-        source: 'dsh-sidebar-element-picker',
+        source: 'dsh-sidebar-browser',
         cmd: 'credentials',
         entries: [{ origin: data.origin, username: 'saved-user', password: 'saved-pass' }]
       }, '*');
@@ -111,7 +111,7 @@ await page.goto(`http://127.0.0.1:${panelPort}/`)
 const shell = page.frameLocator('#shell')
 const site = shell.frameLocator('#site')
 /** @returns {object|undefined} the shell's own frame. */
-const shellFrame = () => page.frames().find((frame) => frame.url().includes('/__dsh_picker__/chrome.html'))
+const shellFrame = () => page.frames().find((frame) => frame.url().includes('/__dsh_shell__/chrome.html'))
 
 await shell.locator('#url').waitFor({ timeout: 15000 })
 check('shell rendered inside the panel frame', true)

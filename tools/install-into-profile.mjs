@@ -26,7 +26,14 @@ import { homedir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-const PACKAGE_NAME = 'dsh-sidebar-element-picker'
+const PACKAGE_NAME = 'dsh-sidebar-browser'
+/**
+ * Names this package was installed under before the rename from
+ * `dsh-sidebar-element-picker`. A stale dependency, bundle row or link would
+ * mount the same code twice and register `read_picked_element` twice, which the
+ * tool registry refuses — so installing the renamed bundle has to sweep them.
+ */
+const PREVIOUS_NAMES = ['dsh-sidebar-element-picker']
 /** The tool-name rival this plugin replaces, if it is still installed. */
 const LEGACY_PACKAGE = 'dsh-webpage-element-picker'
 const LEGACY_ENTRY_ID = 'webpage-element-picker'
@@ -81,6 +88,14 @@ say(`source:  ${projectRoot}`)
 
 // ------------------------------------------------------------------ 1. link
 
+for (const previous of PREVIOUS_NAMES) {
+  const stale = join(profileDir, 'node_modules', previous)
+  if (existsSync(stale) || lstatSync(stale, { throwIfNoEntry: false }) !== undefined) {
+    say(`删除旧包链接 ${stale}`)
+    if (!dryRun) rmSync(stale, { recursive: true, force: true })
+  }
+}
+
 const target = join(profileDir, 'node_modules', PACKAGE_NAME)
 if (dryRun) {
   say(`会${copy ? '复制' : '软链'}到 ${target}`)
@@ -111,6 +126,15 @@ manifest.dsh.profile = manifest.dsh.profile ?? {}
 
 const dependencySpec = copy ? `file:${target}` : `link:${projectRoot}`
 let manifestChanged = false
+
+for (const previous of PREVIOUS_NAMES) {
+  if (manifest.dependencies[previous] !== undefined) {
+    delete manifest.dependencies[previous]
+    manifestChanged = true
+    say(`dependencies -= ${previous}（改名前的包名）`)
+  }
+}
+
 if (manifest.dependencies[PACKAGE_NAME] !== dependencySpec) {
   manifest.dependencies[PACKAGE_NAME] = dependencySpec
   manifestChanged = true
@@ -120,6 +144,12 @@ if (manifest.dependencies[PACKAGE_NAME] !== dependencySpec) {
 }
 
 const bundles = Array.isArray(manifest.dsh.profile.bundles) ? manifest.dsh.profile.bundles : []
+for (const previous of PREVIOUS_NAMES) {
+  if (!bundles.includes(previous)) continue
+  while (bundles.includes(previous)) bundles.splice(bundles.indexOf(previous), 1)
+  manifestChanged = true
+  say(`dsh.profile.bundles -= ${previous}（改名前的包名）`)
+}
 if (!bundles.includes(PACKAGE_NAME)) {
   const at = bundles.indexOf(BUNDLE_AFTER)
   if (at >= 0) bundles.splice(at + 1, 0, PACKAGE_NAME)
@@ -142,12 +172,13 @@ let patch = existsSync(patchPath) ? readFileSync(patchPath, 'utf8') : ''
 let patchChanged = false
 
 // A hand-mounted row from an earlier revision of this installer must go: it
-// would collide with the row the bundle contributes.
+// would collide with the row the bundle contributes. That includes a row naming
+// the package's pre-rename name.
 const insertStart = patch.indexOf('\n# 侧边栏浏览器 + 元素拾取')
 if (insertStart >= 0) {
   const nextEntry = patch.indexOf('\n- id:', insertStart + 1)
   const insertBlock = nextEntry < 0 ? patch.slice(insertStart) : patch.slice(insertStart, nextEntry)
-  if (insertBlock.includes(PACKAGE_NAME)) {
+  if (insertBlock.includes(PACKAGE_NAME) || PREVIOUS_NAMES.some((name) => insertBlock.includes(name))) {
     patch = `${patch.slice(0, insertStart)}${nextEntry < 0 ? '' : patch.slice(nextEntry)}`
     patchChanged = true
     say('cordis.patch.yml -= 手写的挂载行（改由 bundle 层提供）')

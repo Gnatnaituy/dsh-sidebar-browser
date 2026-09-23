@@ -47,14 +47,14 @@ function strip(titles, active, picked) {
   const tabs = titles
     .map(
       (title, index) =>
-        `<button class="dsh-sep-tab" data-active="${index === active ? 'true' : 'false'}" type="button"><span class="dsh-sep-tabTitle">${title}</span><span class="dsh-sep-tabClose">×</span></button>`,
+        `<button class="dsh-sb-tab" data-active="${index === active ? 'true' : 'false'}" type="button"><span class="dsh-sb-tabTitle">${title}</span><span class="dsh-sb-tabClose">×</span></button>`,
     )
     .join('')
   const tools =
     picked > 0
-      ? `<span>已拾取 ${picked}</span><button class="dsh-sep-link" type="button">清空</button>`
+      ? `<span>已拾取 ${picked}</span><button class="dsh-sb-link" type="button">清空</button>`
       : ''
-  return `<div class="dsh-sep-strip"><div class="dsh-sep-tabs">${tabs}<button class="dsh-sep-newtab" type="button">＋</button></div><div class="dsh-sep-stripTools">${tools}</div></div>`
+  return `<div class="dsh-sb-strip"><div class="dsh-sb-tabs">${tabs}<button class="dsh-sb-newtab" type="button">＋</button></div><div class="dsh-sb-stripTools">${tools}</div></div>`
 }
 
 /**
@@ -72,8 +72,8 @@ async function panelPage(options) {
   return `<!doctype html><meta charset="utf-8"><style>${TOKENS}${css}
     body{margin:0;background:#e7e9ee;padding:16px;font-family:var(--dsw-font-family)}
     .shot{width:${options.width ?? 420}px;height:${options.height ?? 660}px;background:var(--dsw-alias-bg-layer-1);border-radius:12px;overflow:hidden;box-shadow:0 10px 34px rgba(0,0,0,.2)}
-    .dsh-sep-frames iframe{width:100%;height:100%;border:0;display:block}
-  </style><div class="shot"><div class="dsh-sep-pane">${strip(options.titles, options.active, options.picked)}<div class="dsh-sep-frames"><iframe src="${options.frame}"></iframe></div></div></div>`
+    .dsh-sb-frames iframe{width:100%;height:100%;border:0;display:block}
+  </style><div class="shot"><div class="dsh-sb-pane">${strip(options.titles, options.active, options.picked)}<div class="dsh-sb-frames"><iframe src="${options.frame}"></iframe></div></div></div>`
 }
 
 const fixture = await startFixtureTarget()
@@ -89,7 +89,7 @@ const session = new ProxySession({
 })
 await session.start()
 session.setTarget(fixture.origin)
-const shell = (query) => `http://127.0.0.1:${session.port}/__dsh_picker__/chrome.html${query}`
+const shell = (query) => `http://127.0.0.1:${session.port}/__dsh_shell__/chrome.html${query}`
 
 const { chromium } = loadPlaywright()
 const browser = await chromium.launch({ ...browserLaunchOptions(), headless: true })

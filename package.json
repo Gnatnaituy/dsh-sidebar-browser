@@ -1,7 +1,7 @@
 {
-  "name": "dsh-sidebar-element-picker",
+  "name": "dsh-sidebar-browser",
   "version": "0.1.0",
-  "description": "DSH web bundle: an element picker that lives in the right sidebar. Browse any site inside a sidebar tab — no separate browser window — click an element, and reference it in the conversation.",
+  "description": "DSH web bundle: a browser in the right sidebar. Browse any site inside a sidebar tab through a per-origin loopback proxy — tabs, zoom, phone and tablet viewports, saved logins — and pick elements into [label][DOMn] references the model reads with a tool.",
   "type": "module",
   "main": "lib/index.js",
   "exports": {
@@ -36,9 +36,12 @@
     "harness",
     "cordis",
     "plugin",
-    "sidebar",
     "browser",
+    "sidebar-browser",
+    "browser-panel",
     "element-picker",
+    "element-picking",
+    "proxy",
     "devtools",
     "responsive",
     "playwright"
@@ -55,11 +58,11 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Gnatnaituy/dsh_sidebar_element_picker.git"
+    "url": "git+https://github.com/Gnatnaituy/dsh-sidebar-browser.git"
   },
-  "homepage": "https://github.com/Gnatnaituy/dsh_sidebar_element_picker#readme",
+  "homepage": "https://github.com/Gnatnaituy/dsh-sidebar-browser#readme",
   "bugs": {
-    "url": "https://github.com/Gnatnaituy/dsh_sidebar_element_picker/issues"
+    "url": "https://github.com/Gnatnaituy/dsh-sidebar-browser/issues"
   },
   "author": "Gnatnaituy",
   "engines": {

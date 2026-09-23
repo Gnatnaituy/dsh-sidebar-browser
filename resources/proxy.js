@@ -23,7 +23,7 @@ import tls from 'node:tls'
 import { randomBytes } from 'node:crypto'
 
 /** Paths this proxy answers itself instead of forwarding. */
-const ASSET_PREFIX = '/__dsh_picker__/'
+const ASSET_PREFIX = '/__dsh_shell__/'
 
 /** Headers that belong to one hop and must never be forwarded. */
 const HOP_BY_HOP = new Set([
@@ -65,7 +65,7 @@ export class ProxySession {
   /**
    * @param {object} options - session wiring.
    * @param {string} options.token - capability token gating every proxied request.
-   * @param {Record<string, {body: Buffer, type: string}>} options.assets - files served under `/__dsh_picker__/`.
+   * @param {Record<string, {body: Buffer, type: string}>} options.assets - files served under `/__dsh_shell__/`.
    * @param {(payload: object) => void} [options.onPick] - called for every posted element.
    * @param {(level: string, message: string) => void} [options.log] - diagnostics sink.
    */

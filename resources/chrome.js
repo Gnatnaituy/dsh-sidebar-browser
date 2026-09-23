@@ -9,7 +9,7 @@
  * is drawn here, over the frame, from `getBoundingClientRect()`.
  *
  * It talks to three parties:
- *   - the proxy routes it was served from (`/__dsh_picker__/*`) for metadata and
+ *   - the proxy routes it was served from (`/__dsh_shell__/*`) for metadata and
  *     the picked-element sink;
  *   - the DSH panel that embedded it, via `postMessage`, for everything it does
  *     not own: which pages exist (tabs), navigating to another origin, and the
@@ -24,9 +24,9 @@
 ;(function () {
   'use strict'
 
-  var ASSET = '/__dsh_picker__/'
-  var PARENT_SOURCE = 'dsh-sidebar-element-picker'
-  var SHELL_SOURCE = 'dsh-sidebar-element-picker-shell'
+  var ASSET = '/__dsh_shell__/'
+  var PARENT_SOURCE = 'dsh-sidebar-browser'
+  var SHELL_SOURCE = 'dsh-sidebar-browser-shell'
 
   /** Device presets. `width === 0` means "fill the pane" (no device frame). */
   var DEVICES = [
