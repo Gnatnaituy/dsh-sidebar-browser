@@ -14,16 +14,16 @@ data/plugins/<owner>__<repo>.yml
 本插件对应：
 
 ```
-data/plugins/Gnatnaituy__dsh_sidebar_element_picker.yml
+data/plugins/Gnatnaituy__dsh-sidebar-browser.yml
 ```
 
-（`<repo>` 是 GitHub 仓库名 `dsh_sidebar_element_picker`（下划线），不是 npm 包名 `dsh-sidebar-element-picker`（连字符）。）
+（文件名里的 `<repo>` 就是仓库名 `dsh-sidebar-browser`，与 npm 包名完全一致；owner 与 repo 之间用**双下划线**分隔。旧版曾把仓库名写成下划线的 `dsh_sidebar_browser`，改名后已统一。）
 
 ## 2. 文件内容
 
 ```yaml
-url: https://github.com/Gnatnaituy/dsh_sidebar_element_picker
-name: Gnatnaituy/dsh_sidebar_element_picker
+url: https://github.com/Gnatnaituy/dsh-sidebar-browser
+name: Gnatnaituy/dsh-sidebar-browser
 category: browser
 description:
   en: 'A browser panel in the right sidebar that opens a site through a per-origin loopback proxy and picks page elements into [label][DOMn] placeholders that the model reads with a tool, with tabs, page zoom, phone and tablet viewport preview, and saved logins.'
@@ -49,8 +49,8 @@ description:
 | `package.json` 声明 `dsh.bundle` | ✅ 已有（`dsh.bundle.patch` → `cordis.patch.yml`） |
 | 放 `cordis.patch.yml` | ✅ 已在仓库根 |
 | 真实可用代码（非占位/纯 README） | ✅ |
-| 仓库**创建满 1 天** | ⚠️ CI 自动检查，新仓库当天提交会被拒 |
-| 仓库加 `dsh-plugin` topic | ⚠️ 待做（GitHub 仓库页 → About → Topics） |
+| 仓库**创建满 1 天** | ⏳ 仓库创建于 2026-09-23 19:15 +0800 —— 最早 **9/24 19:15 +0800** 之后提交（CI 自动检查，当天提会被拒） |
+| 仓库加 `dsh-plugin` topic | ✅ 已有（`cordis` / `deepseek-harness` / `dsh` / `dsh-plugin` / `element-picker` / `sidebar`） |
 | 描述属实 | ✅ 见上 |
 | 一个 PR 最多 3 条 | ✅ 只提交 1 条 |
 
@@ -66,12 +66,12 @@ description:
 # fork 之后
 git clone https://github.com/<you>/awesome-dsh-plugin
 cd awesome-dsh-plugin
-git checkout -b add-dsh-sidebar-element-picker
-cp /path/to/dsh_sidebar_element_picker/submission/Gnatnaituy__dsh_sidebar_element_picker.yml \
-   data/plugins/Gnatnaituy__dsh_sidebar_element_picker.yml
-git add data/plugins/Gnatnaituy__dsh_sidebar_element_picker.yml
-git commit -m "Add dsh-sidebar-element-picker"
-git push -u origin add-dsh-sidebar-element-picker
+git checkout -b add-dsh-sidebar-browser
+cp /path/to/dsh-sidebar-browser/submission/Gnatnaituy__dsh-sidebar-browser.yml \
+   data/plugins/Gnatnaituy__dsh-sidebar-browser.yml
+git add data/plugins/Gnatnaituy__dsh-sidebar-browser.yml
+git commit -m "Add dsh-sidebar-browser"
+git push -u origin add-dsh-sidebar-browser
 ```
 
 然后在 GitHub 上开 PR。CI 按顺序检查：条目数 → 从你的仓库读 `dsh.bundle` → 仓库年龄 → `awesome-lint` 与站点构建。失败会说明改什么，在同一个分支上推送修复即可，不用重开 PR。
@@ -80,8 +80,8 @@ git push -u origin add-dsh-sidebar-element-picker
 
 ```sh
 # 干净 profile 里从 GitHub 安装，确认真的能装
-dsh plugin --profile web add "github:Gnatnaituy/dsh_sidebar_element_picker#main"
-dsh --profile web --dump-config | grep -A3 sidebar-element-picker
+dsh plugin --profile web add "github:Gnatnaituy/dsh-sidebar-browser#main"
+dsh --profile web --dump-config | grep -A3 sidebar-browser
 ```
 
 本地目录安装（等价路径）：

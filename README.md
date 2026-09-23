@@ -1,8 +1,8 @@
-# dsh-sidebar-element-picker
+# dsh-sidebar-browser
 
-DSH（DeepSeek Harness）动态插件：**把元素拾取放进右侧栏**。在侧边栏里直接浏览网页（多标签页、可缩放、可切手机/平板视口），点「拾取」再点页面上的任意元素，元素就以 `[标签][DOMn]` 引用式占位符进入输入框，完整信息由模型按需通过 `read_picked_element` 工具读取。
+DSH（DeepSeek Harness）动态插件：**一个长在右侧栏里的浏览器，元素拾取是它的一项能力**。多标签页、缩放、手机/平板视口、记住账号密码，页面就在侧边栏里跑（每个目标源一个回环反向代理，所以页面既不逃出侧栏，也碰不到 GUI 的 DOM）。需要时点「拾取」再点页面上的任意元素，元素就以 `[标签][DOMn]` 引用式占位符进入输入框，完整信息由模型按需通过 `read_picked_element` 工具读取。
 
-不再需要一个额外的 Chrome 窗口，页面也不会一转身就丢。
+不是「拾取一次就走的拾取器」：标签页、地址、缩放、视口、登录态都留着，页面不丢，也不再需要一个额外的 Chrome 窗口。
 
 <img src="assets/screenshot-1.png" width="320" alt="在侧边栏浏览器里拾取元素：目标元素被高亮并显示 CSS 选择器"> <img src="assets/screenshot-2.png" width="320" alt="同一个页面切到 iPhone 15 Pro 视口后的重排效果">
 
@@ -62,11 +62,12 @@ node tools/install-into-profile.mjs --dry-run   # 先看要改什么
 node tools/install-into-profile.mjs             # 软链 + 依赖 + bundle 挂载
 ```
 
-脚本做三件事（幂等）：
+脚本做四件事（幂等）：
 
-1. 把包软链到 `$DSH_HOME/profiles/web/node_modules/dsh-sidebar-element-picker`；
+1. 把包软链到 `$DSH_HOME/profiles/web/node_modules/dsh-sidebar-browser`；
 2. 在 profile 的 `package.json` 里登记依赖（`link:` 指向本目录），并加入 `dsh.profile.bundles`；
-3. 如果 profile 里还装着旧的窗口版拾取器，把它的 loader 条目置为 `disabled: true`（两者注册同名的 `read_picked_element`，不能并存）。
+3. **清掉改名前的残留**：`dsh-sidebar-browser` 以前叫 `dsh-sidebar-element-picker`，profile 里若还留着旧包名的依赖、bundle 行、`node_modules` 链接或手写挂载行，会和新包重复注册 `read_picked_element`，脚本一并删除；
+4. 如果 profile 里还装着旧的窗口版拾取器（`dsh-webpage-element-picker`，另一个包），把它的 loader 条目置为 `disabled: true`（它也注册同名的 `read_picked_element`，不能并存）。
 
 **为什么用 bundle 挂载而不是往 `cordis.patch.yml` 手写一行**：手写行也能加载，但 loader 把 profile 自己的 patch 当作**增量**应用，同一个 `insert` 行被重复应用时会留下陈旧条目并报 `duplicate loader entry id`；bundle 层每次重载都是从零重建的，所以是稳定的那种。代价是 bundle 属于**启动期配置**：
 
@@ -81,6 +82,32 @@ node tools/install-into-profile.mjs             # 软链 + 依赖 + bundle 挂�
 
 ```sh
 node tools/uninstall-from-profile.mjs
+```
+
+### 改名：dsh-sidebar-element-picker → dsh-sidebar-browser
+
+这个包以前叫 `dsh-sidebar-element-picker`（定位是「元素拾取器」），现在叫 `dsh-sidebar-browser`（定位是「侧边栏浏览器」）。改动落在三处，都有兜底：
+
+| 面 | 旧 | 新 | 兜底 |
+|---|---|---|---|
+| npm 包名 / loader id | `dsh-sidebar-element-picker` | `dsh-sidebar-browser` | 安装脚本自动清扫 profile 里的旧包名残留 |
+| localStorage 命名空间 | `dsh-sidebar-element-picker:*` | `dsh-sidebar-browser:*` | 客户端启动时一次性搬迁（标签页、最近访问、已存账号、端口记忆） |
+| 代理外壳路径 / CSS 前缀 | `__dsh_picker__` / `dsh-sep-` | `__dsh_shell__` / `dsh-sb-` | 纯内部，无数据 |
+
+**端口记忆是必须迁移的那一项**：站点在代理端口上的源（origin）决定了它自己 localStorage / IndexedDB 里的登录态，端口表一丢，站点就会拿到一个新源，表现得像「又要重新登录」。迁移只做一次，之后不再运行；反过来降级回旧版本会读不到键（这一方向有意不保）。
+
+GitHub 仓库名与本地目录名也已一起改（两者都必须与包名一致，否则 `package.json` 里的 `repository` / `homepage` / 投稿条目指向的 `Gnatnaituy/dsh-sidebar-browser` 会 404）。当时执行的命令：
+
+```sh
+gh repo rename dsh-sidebar-browser --repo Gnatnaituy/dsh_sidebar_element_picker
+git remote set-url origin https://github.com/Gnatnaituy/dsh-sidebar-browser.git
+mv dsh_sidebar_element_picker dsh-sidebar-browser
+```
+
+**改本地目录名之后必须重跑安装脚本并重启 DSH Desktop**：profile 里的软链与 `link:` 依赖指向旧路径会直接失效，面板会报 `ENOENT ... resources/chrome.html`（这次改名就踩过，见 `PUBLISHING.md`）。
+
+```sh
+node tools/install-into-profile.mjs   # 重建软链与 link: 依赖，并清扫旧包名残留
 ```
 
 ## 使用
@@ -98,7 +125,7 @@ node tools/uninstall-from-profile.mjs
 
 ### 关于保存的账号密码
 
-- 存在 **DSH GUI 源的 localStorage**（`dsh-sidebar-element-picker:credentials`）里，按目标源一一对应；**不会**发给 host 插件、**不会**进入对话、**不会**出现在拾取结果里（密码输入框的 `value` 在元素记录中被显式抹掉）。
+- 存在 **DSH GUI 源的 localStorage**（`dsh-sidebar-browser:credentials`）里，按目标源一一对应；**不会**发给 host 插件、**不会**进入对话、**不会**出现在拾取结果里（密码输入框的 `value` 在元素记录中被显式抹掉）。
 - 没有可用的系统钥匙串，所以是明文存储：能打开这个浏览器 profile / DevTools 的人就能读到。它和你的 DSH 会话本身是同一信任级别。
 - 只在**完全相同的目标源**上填充；换站点不会串。每个站点保留一组账号，再次保存同一站点会覆盖（像浏览器的「更新密码」）。
 - 被测页面与外壳同源，所以页面自己理论上能读到填进去的值——但它本来就读得到你在它自己表单里输入的东西，没有额外暴露。
@@ -165,18 +192,18 @@ DSH client（lib/client.js）
   └ sidebar.right.pane.tab(key=…:browser) 面板
          ├ 标签条：来自 host 的权威状态（标题/激活/关闭/新建）
          └ 每个标签一个 iframe（全部保持挂载，地址在导航时钉住）
-                └ http://<gui-host>:<port>/__dsh_picker__/chrome.html?p=…&z=…&d=…&l=…
+                └ http://<gui-host>:<port>/__dsh_shell__/chrome.html?p=…&z=…&d=…&l=…
                        [代理源] 外壳：地址栏 / 前进后退 / 拾取 / 缩放 / 设备视口 / 高亮 / 元素快照
                            └ <iframe id="site" src="/…">  被测页面（与外壳同源）
-                       → POST /__dsh_picker__/pick
+                       → POST /__dsh_shell__/pick
 
 DSH host（lib/index.js）
   ├ 每个对话一份浏览器状态：{ tabs[], activeId }（面板可被卸载，状态不会丢）
   ├ 每个（对话, 目标源）一个 ProxySession（127.0.0.1:随机端口）
   │      GET  /*                       反向代理（透传 body，仅改框架相关头）
-  │      POST /__dsh_picker__/pick     接收拾取 → 记入该对话上下文
+  │      POST /__dsh_shell__/pick     接收拾取 → 记入该对话上下文
   │      upgrade /*                    原样隧道转发（HMR）
-  ├ POST /dsh-sidebar-element-picker/invoke   面板/按钮 → host
+  ├ POST /dsh-sidebar-browser/invoke   面板/按钮 → host
   ├ tools.register: read_picked_element
   └ systemPrompt.context: 一元素一行的紧凑清单
 ```

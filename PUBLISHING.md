@@ -15,15 +15,15 @@
 ## 0. 三步总览
 
 ```sh
-# ① 代码已在 https://github.com/Gnatnaituy/dsh_sidebar_element_picker
+# ① 代码已在 https://github.com/Gnatnaituy/dsh-sidebar-browser
 # ② 身份信息已填好（见下"身份信息"）
-# ③ 往 awesome-dsh-plugin 提 PR：data/plugins/Gnatnaituy__dsh_sidebar_element_picker.yml
+# ③ 往 awesome-dsh-plugin 提 PR：data/plugins/Gnatnaituy__dsh-sidebar-browser.yml
 ```
 
 提交用的 YAML 已经写好了两处副本：
 
 - 正文可见：`submission/README.md`（含逐条对照说明）
-- 可直接提交的条目：`submission/Gnatnaituy__dsh_sidebar_element_picker.yml`
+- 可直接提交的条目：`submission/Gnatnaituy__dsh-sidebar-browser.yml`
 
 ---
 
@@ -43,11 +43,11 @@ LICENSE / README.md
 ```
 
 ```sh
-cd dsh_sidebar_element_picker
+cd dsh-sidebar-browser
 git init -b main
 git add -A
-git commit -m "dsh-sidebar-element-picker: sidebar browser with element picking"
-git remote add origin git@github.com:Gnatnaituy/dsh_sidebar_element_picker.git
+git commit -m "dsh-sidebar-browser: sidebar browser with element picking"
+git remote add origin git@github.com:Gnatnaituy/dsh-sidebar-browser.git
 git push -u origin main
 ```
 
@@ -57,21 +57,29 @@ git push -u origin main
 
 | 位置 | 当前值 |
 |---|---|
-| `package.json` 的 `repository` / `homepage` / `bugs` / `author` | `Gnatnaituy` / `dsh_sidebar_element_picker` |
+| `package.json` 的 `repository` / `homepage` / `bugs` / `author` | `Gnatnaituy` / `dsh-sidebar-browser` |
 | `LICENSE` 第 3 行 | `Copyright (c) 2026 Gnatnaituy` |
-| `submission/Gnatnaituy__dsh_sidebar_element_picker.yml` 的 `url` / `name` | `https://github.com/Gnatnaituy/dsh_sidebar_element_picker` |
+| `submission/Gnatnaituy__dsh-sidebar-browser.yml` 的 `url` / `name` | `https://github.com/Gnatnaituy/dsh-sidebar-browser` |
 
-⚠️ 两个名字不同是有意的，改的时候别弄混：
+仓库名与 npm 包名是**同一个** `dsh-sidebar-browser`：仓库 URL、`repository` / `homepage` / `bugs`、条目文件名、`dsh plugin add` 的包名全用它。这是市场里的常规做法（4183 条里 4011 条仓库名带连字符，1382 条仓库名与包名完全一致）。
 
-- **GitHub 仓库**：`dsh_sidebar_element_picker`（下划线）——`url` / `name` / `repository` / 条目文件名用它。
-- **npm 包名**：`dsh-sidebar-element-picker`（连字符）——`package.json` 的 `name` 与 `dsh plugin add` 的包名用它。目录名、仓库名与包名不一致是正常的。
+名字里唯一需要留意的分隔符是**条目文件名** `data/plugins/<owner>__<repo>.yml`：owner 与 repo 之间是**双下划线**，repo 自己带的是连字符，例如 `ParticleLight__dsh-browser-plus.yml`。本插件对应 `Gnatnaituy__dsh-sidebar-browser.yml`。
+
+✅ **改名两面都已落地**：npm 包名与 GitHub 仓库名现在都是 `dsh-sidebar-browser`。改名当时做过（供换机器时参考）：
+
+```sh
+gh repo rename dsh-sidebar-browser --repo Gnatnaituy/dsh_sidebar_element_picker
+git remote set-url origin https://github.com/Gnatnaituy/dsh-sidebar-browser.git
+```
+
+改名后本地目录也跟着改了名（`dsh_sidebar_element_picker` → `dsh-sidebar-browser`），profile 里的软链与 `link:` 依赖指向旧路径会直接失效，所以**目录改名后必须重跑 `node tools/install-into-profile.mjs` 并重启 DSH Desktop**，否则侧边栏浏览器面板会报 `ENOENT ... resources/chrome.html`。
 
 `repository` 不是装饰：**如果你之后发了 npm，市场只会把 `repository` 指回被收录仓库的 npm 包关联起来**，指错了就没有下载量数字。
 
 ### 仓库设置
 
-- **加 `dsh-plugin` topic**（仓库页 → About → Topics）。这是列表的硬性要求。
-- 仓库**创建满 1 天**才能提交，CI 会自动检查。当天新建当天提会被拒——把功能做完再来，重新提交不会有任何影响。
+- ✅ **`dsh-plugin` topic 已有**（2026-09-23 核实：`cordis` / `deepseek-harness` / `dsh` / `dsh-plugin` / `element-picker` / `sidebar`）。这是列表的硬性要求，换仓库时记得补。
+- 仓库**创建满 1 天**才能提交，CI 会自动检查。本仓库创建于 2026-09-23 19:15 +0800，所以**最早 9/24 19:15 +0800 之后**才不会被拒——把功能做完再来，重新提交不会有任何影响。
 
 ---
 
@@ -97,7 +105,7 @@ npm publish --access public
 只有**仓库无法从源码安装**时才需要（本项目不需要）。若要用，`tarball:` 必须是 GitHub Release 托管的 `https` `.tgz`：
 
 ```yaml
-tarball: https://github.com/Gnatnaituy/dsh_sidebar_element_picker/releases/latest/download/dsh_sidebar_element_picker.tgz
+tarball: https://github.com/Gnatnaituy/dsh-sidebar-browser/releases/latest/download/dsh-sidebar-browser.tgz
 ```
 
 用 `latest/download/` 时**文件名不要带版本号**，否则下一次发版就 404。要带版本就把 tag 钉死。
@@ -109,15 +117,15 @@ tarball: https://github.com/Gnatnaituy/dsh_sidebar_element_picker/releases/lates
 ```sh
 git clone https://github.com/<you>/awesome-dsh-plugin
 cd awesome-dsh-plugin
-git checkout -b add-dsh-sidebar-element-picker
+git checkout -b add-dsh-sidebar-browser
 
 # 文件名必须是 <owner>__<repo>.yml
-cp /path/to/dsh-sidebar-element-picker/submission/Gnatnaituy__dsh_sidebar_element_picker.yml \
-   data/plugins/<owner>__dsh-sidebar-element-picker.yml
+cp /path/to/dsh-sidebar-browser/submission/Gnatnaituy__dsh-sidebar-browser.yml \
+   data/plugins/Gnatnaituy__dsh-sidebar-browser.yml
 
-git add data/plugins/<owner>__dsh-sidebar-element-picker.yml
-git commit -m "Add dsh-sidebar-element-picker"
-git push -u origin add-dsh-sidebar-element-picker
+git add data/plugins/Gnatnaituy__dsh-sidebar-browser.yml
+git commit -m "Add dsh-sidebar-browser"
+git push -u origin add-dsh-sidebar-browser
 ```
 
 然后开 PR。**只加这一个文件**：两个 README 由脚本从 `data/plugins/*.yml` 生成，手改会撞车，CI 也会要求重生成。
@@ -136,7 +144,7 @@ npm ci && node scripts/generate-readme.mjs
 
 1. **条目数** —— 一个 PR 最多 3 条（这里只提 1 条）。
 2. **`dsh.bundle`** —— 从你仓库的 `package.json` 读取。**只声明 `dsh.client` 会在这里失败**（这是最常见的被拒原因）。本仓库两个都声明了，且 `bundle` 在前。
-3. **仓库年龄** —— 满 1 天。
+3. **仓库年龄** —— 满 1 天（本仓库创建于 2026-09-23 19:15 +0800，最早 **9/24 19:15 +0800** 之后提交）。
 4. **`awesome-lint` 与站点构建** —— 双语一致性、分隔符、日期、截图。
 
 失败会明确说明改什么，在**同一个分支**上推送修复即可。
@@ -148,11 +156,11 @@ npm ci && node scripts/generate-readme.mjs
 干净 profile 里从 GitHub 安装（和用户的安装路径一致）：
 
 ```sh
-dsh plugin --profile web add "github:Gnatnaituy/dsh_sidebar_element_picker#main"
-dsh --profile web --dump-config | grep -A4 sidebar-element-picker
+dsh plugin --profile web add "github:Gnatnaituy/dsh-sidebar-browser#main"
+dsh --profile web --dump-config | grep -A4 sidebar-browser
 ```
 
-期望看到一层 `# == dsh-sidebar-element-picker` 和一行 `id: sidebar-element-picker`，没有 `duplicate loader entry id`。
+期望看到一层 `# == dsh-sidebar-browser` 和一行 `id: sidebar-browser`，没有 `duplicate loader entry id`。
 
 本地目录安装（开发时用）：
 
