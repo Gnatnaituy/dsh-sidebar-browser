@@ -186,6 +186,60 @@ const rotated = await shellFrame().evaluate(() => ({
 }))
 check('rotating swaps the preview box', rotated.size === '1194×834' && Math.abs(rotated.width - 1194) <= 1, `${rotated.size} ${rotated.width}`)
 
+// ------------------------------------------------------- manual resolution
+
+// The size readout is the editable one — the toolbar is narrow, so the fields
+// float under it — and an applied box becomes the `custom` preset, so a layout
+// can be checked at a size no preset covers.
+await shell.locator('#size').click()
+await shell.locator('#sizeW').fill('400')
+await shell.locator('#sizeH').fill('700')
+await shell.locator('#sizeH').press('Enter')
+await page.waitForTimeout(300)
+const typed = await shellFrame().evaluate(() => {
+  const frame = document.getElementById('site')
+  return {
+    width: frame.contentWindow.innerWidth,
+    height: frame.contentWindow.innerHeight,
+    size: document.getElementById('size').textContent,
+    device: document.getElementById('device').value,
+    editorHidden: document.getElementById('sizeEdit').hidden,
+  }
+})
+check('a typed size becomes the viewport', Math.abs(typed.width - 400) <= 1 && Math.abs(typed.height - 700) <= 1, JSON.stringify(typed))
+check('a typed size fires the page’s media queries', (await site.locator('#mq').innerText()) === 'phone')
+check('a typed size is reported in the toolbar', typed.size === '400×700' && typed.device === 'custom', `${typed.size} ${typed.device}`)
+check('the size editor closes once applied', typed.editorHidden === true)
+
+await shell.locator('#rotate').click()
+await page.waitForTimeout(300)
+const typedRotated = await shellFrame().evaluate(() => ({
+  width: document.getElementById('site').contentWindow.innerWidth,
+  size: document.getElementById('size').textContent,
+}))
+check('a typed size rotates like a preset', typedRotated.size === '700×400' && Math.abs(typedRotated.width - 700) <= 1, `${typedRotated.size} ${typedRotated.width}`)
+check('the rotated box stops matching the phone query', (await site.locator('#mq').innerText()) === 'desktop')
+
+// The panel carries a typed box in the shell URL (`w`/`h`), which is how a
+// restored tab comes back in the size it was left in rather than the preset's.
+const restored = await browser.newPage()
+await restored.goto(`http://127.0.0.1:${session.port}/__dsh_shell__/chrome.html?p=/&d=custom&w=400&h=700`)
+await restored.locator('#size').waitFor({ timeout: 15000 })
+await restored.waitForTimeout(300)
+const restoredState = await restored.evaluate(() => ({
+  size: document.getElementById('size').textContent,
+  device: document.getElementById('device').value,
+  width: document.getElementById('site').contentWindow.innerWidth,
+  probe: document.getElementById('site').contentDocument === null ? '' : document.getElementById('site').contentDocument.getElementById('mq').textContent,
+}))
+check(
+  'a typed box is restored from the shell URL',
+  restoredState.size === '400×700' && restoredState.device === 'custom' && Math.abs(restoredState.width - 400) <= 1,
+  JSON.stringify(restoredState),
+)
+check('a restored typed box still drives the page', restoredState.probe === 'phone', String(restoredState.probe))
+await restored.close()
+
 // ------------------------------------------------------------------- zoom
 
 check('the page observes a wide viewport again', (await site.locator('#mq').innerText()) === 'desktop')

@@ -39,7 +39,15 @@
     { key: 'tablet-744', label: 'iPad mini', width: 744, height: 1133, kind: 'tablet' },
     { key: 'tablet-820', label: 'iPad Air', width: 820, height: 1180, kind: 'tablet' },
     { key: 'tablet-834', label: 'iPad Pro 11"', width: 834, height: 1194, kind: 'tablet' },
+    { key: 'custom', label: '自定义', width: 0, height: 0, kind: 'desktop' },
   ]
+
+  /** The preset key whose box is typed rather than tabulated. */
+  var CUSTOM_KEY = 'custom'
+  /** The size a custom box starts from, and the range it is held inside. */
+  var CUSTOM_FALLBACK = { width: 1280, height: 800 }
+  var SIZE_MIN = 160
+  var SIZE_MAX = 4096
 
   /** Zoom stops offered by the toolbar's select. */
   var ZOOMS = [0.25, 0.5, 0.67, 0.75, 0.8, 0.9, 1, 1.1, 1.25, 1.5, 2, 3]
@@ -60,6 +68,9 @@
   var deviceSelect = document.getElementById('device')
   var rotateBtn = document.getElementById('rotate')
   var sizeLabel = document.getElementById('size')
+  var sizeEdit = document.getElementById('sizeEdit')
+  var sizeWInput = document.getElementById('sizeW')
+  var sizeHInput = document.getElementById('sizeH')
   var canvas = document.getElementById('canvas')
   var sizer = document.getElementById('sizer')
   var viewport = document.getElementById('viewport')
@@ -78,8 +89,9 @@
   var armed = false
   var hovered = null
   var toastTimer = 0
-  /** `{zoom, deviceKey, landscape}` — the shell's share of the tab's state. */
-  var view = { zoom: 1, deviceKey: 'responsive', landscape: false }
+  /** `{zoom, deviceKey, landscape, width, height}` — the shell's share of the
+   * tab's state. `width`/`height` are the typed box behind `deviceKey: custom`. */
+  var view = { zoom: 1, deviceKey: 'responsive', landscape: false, width: CUSTOM_FALLBACK.width, height: CUSTOM_FALLBACK.height }
   /** Saved logins for this origin, pushed in by the panel. */
   var credentials = []
   /** Whether this page already asked the panel for its saved logins. */
@@ -839,30 +851,55 @@ function withScheme(text) {
 
   // -------------------------------------------------------------------- view
 
-  /** @returns {object} the selected device preset. */
-  function device() {
+  /** @param {string} key - a preset key. @returns {object} its entry. */
+  function deviceFor(key) {
     for (var i = 0; i < DEVICES.length; i += 1) {
-      if (DEVICES[i].key === view.deviceKey) return DEVICES[i]
+      if (DEVICES[i].key === key) return DEVICES[i]
     }
     return DEVICES[0]
   }
 
+  /**
+   * @param {unknown} value - a requested size in CSS pixels.
+   * @returns {number|undefined} a whole number inside the allowed range, or
+   * undefined when the value is not a size at all.
+   */
+  function clampSize(value) {
+    var number = typeof value === 'number' ? value : Number(value)
+    if (!isFinite(number) || number <= 0) return undefined
+    return Math.min(SIZE_MAX, Math.max(SIZE_MIN, Math.round(number)))
+  }
+
+  /**
+   * The box a view state asks the page to be laid out in, after its orientation.
+   * @param {{deviceKey: string, landscape: boolean, width: number, height: number}} state - the view.
+   * @returns {{width: number, height: number}|null} the box in CSS pixels, or null to fill the pane.
+   */
+  function boxOf(state) {
+    var preset = deviceFor(state.deviceKey)
+    var width
+    var height
+    if (state.deviceKey === CUSTOM_KEY) {
+      width = clampSize(state.width) || CUSTOM_FALLBACK.width
+      height = clampSize(state.height) || CUSTOM_FALLBACK.height
+    } else if (preset.width > 0) {
+      width = preset.width
+      height = preset.height
+    } else {
+      return null
+    }
+    return state.landscape ? { width: height, height: width } : { width: width, height: height }
+  }
+
   /** Re-apply the zoom and device box to the DOM. */
   function applyView() {
-    var preset = device()
-    var framed = preset.width > 0
+    var box = boxOf(view)
+    var framed = box !== null
     var pad = framed ? 20 : 0
     var availW = Math.max(160, canvas.clientWidth - pad)
     var availH = Math.max(160, canvas.clientHeight - pad)
-    var width
-    var height
-    if (framed) {
-      width = view.landscape ? preset.height : preset.width
-      height = view.landscape ? preset.width : preset.height
-    } else {
-      width = availW / view.zoom
-      height = availH / view.zoom
-    }
+    var width = framed ? box.width : availW / view.zoom
+    var height = framed ? box.height : availH / view.zoom
     viewport.style.width = width + 'px'
     viewport.style.height = height + 'px'
     viewport.style.transform = 'scale(' + view.zoom + ')'
@@ -870,6 +907,10 @@ function withScheme(text) {
     sizer.style.height = height * view.zoom + 'px'
     canvas.classList.toggle('hasFrame', framed)
     sizeLabel.textContent = Math.round(width) + '×' + Math.round(height)
+    if (sizeEdit.hidden) {
+      sizeWInput.value = String(Math.round(width))
+      sizeHInput.value = String(Math.round(height))
+    }
     if (zoomSelect.value !== String(view.zoom)) zoomSelect.value = String(view.zoom)
     // The page's own viewport changed, so anything highlighted is stale.
     onScroll()
@@ -900,22 +941,82 @@ function withScheme(text) {
     reportView()
   }
 
+  /**
+   * Put the page in a box of exactly this size: the typed preset, in portrait.
+   * @param {unknown} width - the requested width in CSS pixels.
+   * @param {unknown} height - the requested height in CSS pixels.
+   * @returns {boolean} whether a box was applied.
+   */
+  function setCustomSize(width, height) {
+    var w = clampSize(width)
+    var h = clampSize(height)
+    if (w === undefined || h === undefined) {
+      toast('尺寸要填 ' + SIZE_MIN + '–' + SIZE_MAX + ' 之间的整数', true)
+      return false
+    }
+    view.deviceKey = CUSTOM_KEY
+    view.landscape = false
+    view.width = w
+    view.height = h
+    deviceSelect.value = CUSTOM_KEY
+    applyView()
+    reportView()
+    return true
+  }
+
   /** Tell the panel what the view looks like, so it survives a remount. */
   function reportView() {
-    post({ ev: 'view', zoom: view.zoom, deviceKey: view.deviceKey, landscape: view.landscape })
+    post({
+      ev: 'view',
+      zoom: view.zoom,
+      deviceKey: view.deviceKey,
+      landscape: view.landscape,
+      width: view.width,
+      height: view.height,
+    })
+  }
+
+  /** @returns {boolean} whether the size editor is open. */
+  function sizeEditorOpen() {
+    return sizeEdit.hidden === false
+  }
+
+  /**
+   * Open the inline size editor, seeded with the box the page has right now —
+   * in responsive mode that is the pane itself, so its size can be frozen into
+   * an explicit one.
+   */
+  function openSizeEditor() {
+    var box = boxOf(view)
+    var width = clampSize(box === null ? canvas.clientWidth : box.width)
+    var height = clampSize(box === null ? canvas.clientHeight : box.height)
+    sizeWInput.value = String(width === undefined ? CUSTOM_FALLBACK.width : width)
+    sizeHInput.value = String(height === undefined ? CUSTOM_FALLBACK.height : height)
+    sizeEdit.hidden = false
+    sizeWInput.focus()
+    sizeWInput.select()
+  }
+
+  /** Hide the editor and put the readout back in step with what is in force. */
+  function closeSizeEditor() {
+    sizeEdit.hidden = true
+    applyView()
+  }
+
+  /** Apply whatever the two fields hold. Bad input closes with a toast. */
+  function commitSize() {
+    if (!sizeEditorOpen()) return
+    setCustomSize(sizeWInput.value, sizeHInput.value)
+    closeSizeEditor()
   }
 
   /** Zoom so the selected device (or the pane itself) fits the available width. */
   function fitWidth() {
-    var preset = device()
-    var pad = preset.width > 0 ? 20 : 0
+    var box = boxOf(view)
+    var pad = box === null ? 0 : 20
     var availW = Math.max(160, canvas.clientWidth - pad)
-    if (preset.width > 0) {
-      var deviceW = view.landscape ? preset.height : preset.width
-      setZoom(availW / deviceW)
-    } else {
-      setZoom(1)
-    }
+    if (box === null) setZoom(1)
+    else setZoom(availW / box.width)
   }
 
   /** Populate the two selects from the tables above. */
@@ -941,13 +1042,20 @@ function withScheme(text) {
 
   /**
    * Apply view state handed in by the panel or read from the URL.
-   * @param {object} state - `{zoom, deviceKey, landscape}`.
+   * @param {object} state - `{zoom, deviceKey, landscape, width, height}`.
    */
   function applyState(state) {
     if (!state || typeof state !== 'object') return
     if (typeof state.zoom === 'number' && isFinite(state.zoom)) view.zoom = Math.min(3, Math.max(0.25, state.zoom))
     if (typeof state.deviceKey === 'string' && state.deviceKey !== '') view.deviceKey = state.deviceKey
     if (typeof state.landscape === 'boolean') view.landscape = state.landscape
+    var width = clampSize(state.width)
+    var height = clampSize(state.height)
+    if (width !== undefined) view.width = width
+    if (height !== undefined) view.height = height
+    // A key this build does not know (an older panel, a newer preset) would
+    // otherwise leave the toolbar pointing at a device nothing can render.
+    if (deviceFor(view.deviceKey).key !== view.deviceKey) view.deviceKey = 'responsive'
     zoomSelect.value = String(view.zoom)
     deviceSelect.value = view.deviceKey
     applyView()
@@ -1030,13 +1138,44 @@ function withScheme(text) {
   })
 
   rotateBtn.addEventListener('click', function () {
-    if (device().width === 0) {
+    if (boxOf(view) === null) {
       toast('响应式模式下无需旋转', true)
       return
     }
     view.landscape = !view.landscape
     applyView()
     reportView()
+  })
+
+  sizeLabel.addEventListener('click', openSizeEditor)
+  sizeLabel.addEventListener('keydown', function (event) {
+    if (event.key !== 'Enter' && event.key !== ' ') return
+    event.preventDefault()
+    openSizeEditor()
+  })
+
+  /**
+   * @param {KeyboardEvent} event - a key press in either size field.
+   */
+  function onSizeKey(event) {
+    if (event.key === 'Enter') {
+      event.preventDefault()
+      commitSize()
+    } else if (event.key === 'Escape') {
+      event.preventDefault()
+      closeSizeEditor()
+    }
+  }
+
+  sizeWInput.addEventListener('keydown', onSizeKey)
+  sizeHInput.addEventListener('keydown', onSizeKey)
+  // Committing on the way out covers Tab, the number spinners and a click on
+  // the page; moving between the two fields stays inside the card and does not
+  // commit half an edit.
+  sizeEdit.addEventListener('focusout', function (event) {
+    var next = event.relatedTarget
+    if (next !== null && next !== undefined && sizeEdit.contains(next)) return
+    commitSize()
   })
 
   window.addEventListener('message', function (event) {
@@ -1083,6 +1222,8 @@ function withScheme(text) {
     zoom: Number(params.get('z') || '1') || 1,
     deviceKey: params.get('d') || 'responsive',
     landscape: params.get('l') === '1',
+    width: Number(params.get('w') || ''),
+    height: Number(params.get('h') || ''),
   })
 
   fetch(ASSET + 'meta')

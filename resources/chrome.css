@@ -184,9 +184,68 @@ button.pick.on {
 .size {
   flex: none;
   min-width: 62px;
+  padding: 1px 4px;
   color: var(--fg-soft);
+  border-radius: 6px;
   font-variant-numeric: tabular-nums;
   text-align: right;
+  cursor: pointer;
+}
+
+.size:hover,
+.size:focus-visible {
+  color: var(--fg);
+  background: color-mix(in srgb, var(--fg) 8%, transparent);
+  outline: none;
+}
+
+/* The size readout is the editable one, so the toolbar keeps its width: the
+   editor floats under it instead of pushing the zoom cluster around in a pane
+   that is already narrow. */
+.device {
+  position: relative;
+}
+
+.sizeEdit {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--bg);
+  box-shadow: var(--frame-shadow);
+}
+
+.sizeInput {
+  width: 56px;
+  height: 24px;
+  padding: 0 6px;
+  font: inherit;
+  font-variant-numeric: tabular-nums;
+  color: var(--fg);
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  outline: none;
+}
+
+.sizeInput:focus {
+  border-color: var(--accent);
+}
+
+.sizeTimes {
+  color: var(--fg-soft);
+}
+
+.sizeHint {
+  margin-left: 2px;
+  color: var(--fg-soft);
+  font-size: 11px;
 }
 
 .stage {
