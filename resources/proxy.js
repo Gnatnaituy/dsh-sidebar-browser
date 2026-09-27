@@ -214,6 +214,29 @@ export class ProxySession {
   }
 
   /**
+   * The `SameSite` half of the capability cookie, judged from the request that
+   * mints it.
+   *
+   * A frame is not necessarily same-site with the page that opened it: DeepSeek
+   * Harness renders its UI from `dsh-app://app/`, so everything inside the shell
+   * is cross-site to it, and a `Lax` cookie is simply not sent there — the shell
+   * would load and then every page it asked for would answer 403. `None` has to
+   * be `Secure`, which Chromium accepts on loopback because `http://127.0.0.1`
+   * counts as a trustworthy origin. A same-site frame (the `dsh web` page in a
+   * browser) keeps `Lax`, which every browser sends over plain http.
+   * @param {http.IncomingMessage} req - the request minting the cookie.
+   * @returns {string} the cookie's `SameSite` attribute.
+   */
+  cookieSameSite(req) {
+    // Only a request that says it is cross-site gets `None`: a client that
+    // sends no `Sec-Fetch-Site` at all is more likely a browser too old to have
+    // it (which would refuse a `Secure` cookie over plain http) than a frame
+    // that is cross-site without saying so, and `Lax` is what works either way.
+    if (req.headers['sec-fetch-site'] === 'cross-site') return 'SameSite=None; Secure'
+    return 'SameSite=Lax'
+  }
+
+  /**
    * Serve one HTTP request: local asset, pick callback, or a proxied target.
    * @param {http.IncomingMessage} req - the incoming request.
    * @param {http.ServerResponse} res - the response to own.
@@ -269,7 +292,7 @@ export class ProxySession {
       }
       if (!this.hasCapability(req)) {
         headers['set-cookie'] =
-          `${this.capabilityPair}; Path=/; HttpOnly; SameSite=Lax`
+          `${this.capabilityPair}; Path=/; HttpOnly; ${this.cookieSameSite(req)}`
       }
       res.writeHead(200, headers)
       res.end(asset.body)

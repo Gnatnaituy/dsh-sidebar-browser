@@ -46,6 +46,25 @@ check('shell mints capability cookie', setCookie.includes(session.cookieName), s
 const cookie = setCookie.split(';')[0]
 check('shell is same-origin framed by itself', (await shell.text()).includes('/__dsh_shell__/chrome.js'))
 
+// The capability has to survive the frame it is minted into. DeepSeek Harness
+// renders its UI from `dsh-app://app/`, so the shell is cross-site there and a
+// `Lax` cookie is never sent: every page would answer 403. A same-site frame —
+// the `dsh web` page in a browser — keeps `Lax`, which works over plain http
+// everywhere, and so does a client too old to say which it is.
+const framed = await fetch(`http://127.0.0.1:${session.port}/__dsh_shell__/chrome.html`, {
+  headers: { 'sec-fetch-site': 'cross-site' },
+})
+const framedCookie = framed.headers.get('set-cookie') ?? ''
+check('a cross-site frame is given a cookie it will send', /samesite=none/i.test(framedCookie) && /secure/i.test(framedCookie), framedCookie)
+check('a client that says nothing keeps a lax cookie', /samesite=lax/i.test(setCookie) && !/secure/i.test(setCookie), setCookie)
+const sibling = await fetch(`http://127.0.0.1:${session.port}/__dsh_shell__/chrome.html`, {
+  headers: { 'sec-fetch-site': 'same-site' },
+})
+check('a browser page on the same host keeps a lax cookie', /samesite=lax/i.test(sibling.headers.get('set-cookie') ?? ''), sibling.headers.get('set-cookie') ?? '')
+const crossOriginCookie = framedCookie.split(';')[0]
+const crossOriginPage = await fetch(`http://127.0.0.1:${session.port}/deep/page`, { headers: { cookie: crossOriginCookie } })
+check('the cross-site capability still passes the gate', crossOriginPage.status === 200, `status ${crossOriginPage.status}`)
+
 const denied = await fetch(`http://127.0.0.1:${session.port}/`)
 check('proxying requires the capability cookie', denied.status === 403, `status ${denied.status}`)
 

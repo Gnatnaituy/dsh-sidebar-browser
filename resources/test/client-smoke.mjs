@@ -582,6 +582,25 @@ const rootFrames = framesOf(rootOpen.tree)
 check('a root-path page still opens a frame', rootFrames.length === 1, JSON.stringify(browsers.get('s9').tabs.map((tab) => tab.url)))
 check('the shell URL carries the root path', String(rootFrames[0].props.src).includes('p=%2F'), rootFrames[0].props.src)
 
+// The frame is addressed at loopback, never at the GUI's own origin. DeepSeek
+// Harness renders its UI from `dsh-app://app/`, and `dsh-app://app:<port>` is
+// not the proxy: the app's protocol handler sends every `app` host to the DSH
+// host server, so the frame came back 404 and the panel stayed blank. The proxy
+// only listens on IPv4 loopback, so that is the origin a frame is built on.
+globalThis.window.location = { origin: 'dsh-app://app', protocol: 'dsh-app:', hostname: 'app' }
+const customScheme = await mount(panelComponent, panelProps('s10', 'tab10'))
+const customSrc = String(framesOf(customScheme.tree)[0].props.src)
+check('a custom-scheme GUI frames the proxy on loopback anyway', customSrc.startsWith('http://127.0.0.1:'), customSrc)
+check('the loopback frame points at the port the host gave it', customSrc.startsWith(`http://127.0.0.1:${browsers.get('s10').tabs[0].port}/`), `${customSrc} vs ${browsers.get('s10').tabs[0].port}`)
+
+// A GUI that is itself a loopback http origin keeps its own hostname, so its
+// frames stay same-site and a `Lax` capability cookie still travels.
+globalThis.window.location = { origin: 'http://localhost:43129', protocol: 'http:', hostname: 'localhost' }
+const loopbackNamed = await mount(panelComponent, panelProps('s11', 'tab11'))
+const localSrc = String(framesOf(loopbackNamed.tree)[0].props.src)
+check('a loopback-named GUI keeps its own host', localSrc.startsWith(`http://localhost:${browsers.get('s11').tabs[0].port}/`), localSrc)
+globalThis.window.location = { origin: 'http://127.0.0.1:43129', protocol: 'http:', hostname: '127.0.0.1' }
+
 // ------------------------------------------- the panel: a never-used browser
 
 // There is no start page: even a browser that has never been used anywhere

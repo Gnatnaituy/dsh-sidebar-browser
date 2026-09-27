@@ -4,7 +4,7 @@
 the `sidebar.right.pane.tab` slot. How a third-party client plugin registers a **new tab type**
 and opens it in DSH's own right Sidebar — no `dsh-better-sidebar` required.
 
-> **Still current in 0.1.7-rc.2 (DeepSeek Harness), with three additions** — re-verified against
+> **Still current in 0.1.7-rc.2 (DeepSeek Harness), with five additions** — re-verified against
 > `@deepseek-ai/dsh-client-ui-sidebar-right` 0.1.7-rc.2 when this plugin moved off DSH Desktop:
 >
 > - **The app now ships a browser tab of its own.** `@deepseek-ai/dsh-client-ui-sidebar-browser`
@@ -22,6 +22,18 @@ and opens it in DSH's own right Sidebar — no `dsh-better-sidebar` required.
 >   `register()`; the renderer keys the guide by `[providerId, entry.id]`.
 > - **`ctx.inject(deps, callback)` returns the child fiber, not a disposer.** The teardown is the
 >   function the *callback* returns; calling the returned value throws `TypeError`.
+> - **The window is not an `http(s)` page, and a plugin that frames content must know it.** Electron
+>   loads the application from `dsh-app://app/` (`lib/main.js`: `applicationUrl = \`${SCHEME}://app/\``,
+>   `navigateMain(applicationUrl)`), registered with `standard/secure/corsEnabled` privileges, and
+>   `protocol.handle("dsh-app", …)` answers host `app` from the frontend bundle plus a
+>   `forwardWebRequest` to the Host. So `window.location` is `dsh-app:`/`app`, and a frame URL built
+>   from it — `dsh-app://app:<port>/…` — reaches the **Host server**, not any port a plugin opened:
+>   the request 404s and the frame renders blank. Loopback-only servers must be addressed explicitly
+>   (`http://127.0.0.1:<port>`), and `will-navigate` (main frame only) does not stand in the way.
+>   Two consequences follow: a frame on loopback is **cross-site** from that page, so a capability
+>   cookie has to be `SameSite=None; Secure` (Chromium accepts `Secure` on `http://127.0.0.1`, which
+>   counts as a trustworthy origin — confirmed in 0.1.7-rc.2's Chromium); and mixed content does not
+>   block it either, for the same trustworthy-origin reason.
 >
 > The profile side changed too: the loader now hot-reloads `dsh.profile.bundles` and
 > `cordis.patch.yml` (`@deepseek-ai/dsh-hmr`), and composition is rebuilt from scratch
@@ -34,6 +46,7 @@ Researched from:
 | --- | --- |
 | Shipped bundles (read-only) | `/Applications/DSH Desktop.app/Contents/Resources/app/node_modules/@deepseek-ai/` |
 | Electron main (desktop shell) | `/Applications/DSH Desktop.app/Contents/Resources/app/out/main/index.js` |
+| Electron main (DeepSeek Harness) | `/Applications/DeepSeek Harness.app/Contents/Resources/app.asar` — `lib/main.js`, `dsh/node_modules/@deepseek-ai/dsh-desktop-host/lib/index.js` |
 | Reference third-party integration | `/Users/ravooo/Library/Application Support/dsh-desktop/harness/profiles/web/node_modules/dsh-better-sidebar/src/client/native/*` |
 | Built-in native tab types (the two shipped consumers) | `@deepseek-ai/dsh-client-ui-sidebar-files`, `@deepseek-ai/dsh-client-ui-sidebar-documentpreview` |
 | Slot machinery | `@deepseek-ai/dsh-client-ui-renderer`, `@deepseek-ai/dsh-client-ui-slots`, `@deepseek-ai/dsh-client-ui-session` |

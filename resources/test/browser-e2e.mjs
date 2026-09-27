@@ -347,6 +347,36 @@ check('the shell cannot script the GUI window it is framed by', escaped === fals
 const frameCount = await page.evaluate(() => document.querySelectorAll('iframe').length)
 check('the panel frame is still alive after picking', frameCount > 0)
 
+// ------------------------------------------------------------- cross-site
+//
+// DeepSeek Harness renders its UI from `dsh-app://app/`, so the page that
+// frames the shell is not merely a different port from it — it is a different
+// *site*. That matters twice over: the shell has to be addressed at loopback
+// (a frame built from the GUI's own origin is `dsh-app://app:<port>`, which the
+// app's protocol handler sends to the DSH host server, not to the proxy), and
+// the capability cookie has to be one the frame will actually send, since a
+// `Lax` cookie is withheld in a cross-site frame and every page would answer
+// 403. The same panel reached over `localhost` reproduces the shape exactly:
+// same server, same markup, a different site from the frame's 127.0.0.1.
+const crossSite = await browser.newPage()
+await crossSite.goto(`http://localhost:${panelPort}/`)
+const crossShell = crossSite.frameLocator('#shell')
+await crossShell.locator('#url').waitFor({ timeout: 15000 })
+check('the shell renders when the framing page is another site', true)
+const crossState = await crossSite.evaluate(() => Object.keys(window.shellState))
+check('the cross-site shell reports itself ready', crossState.includes('ready'), JSON.stringify(crossState))
+await crossShell.locator('#url').fill(target.replace(/^https?:\/\//, ''))
+await crossShell.locator('#url').press('Enter')
+// The fixture's own heading, not just "some text": a 403 from the capability
+// gate renders a page too, and this check has to tell the two apart.
+const crossTitle = await crossShell.frameLocator('#site').locator('#title').innerText().catch(() => '')
+check('the capability cookie survives a cross-site frame', crossTitle.includes('测试目标站点'), crossTitle)
+// The fixture's own script writes this: a framed page runs normally even though
+// its frame is third-party to the page that opened it.
+const crossPath = await crossShell.frameLocator('#site').locator('#path').innerText().catch(() => '')
+check('a cross-site frame still runs the page scripts', crossPath.startsWith('/'), crossPath)
+await crossSite.close()
+
 await browser.close()
 panel.close()
 session.close()
