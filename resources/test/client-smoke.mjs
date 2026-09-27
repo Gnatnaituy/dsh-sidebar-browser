@@ -210,6 +210,8 @@ const frameForPort = (tree, port) =>
 const listeners = new Map()
 const storage = new Map()
 const calls = []
+/** A host method whose next call fails, for the failure paths. */
+let failNext = null
 
 globalThis.window = {
   location: { origin: 'http://127.0.0.1:43129', protocol: 'http:', hostname: '127.0.0.1' },
@@ -369,6 +371,12 @@ function hostCall(method, params) {
 globalThis.fetch = async (_url, options) => {
   const body = JSON.parse(options.body)
   calls.push({ method: body.method, params: body.params })
+  // One host call can be made to fail, the way it does while the plugin is
+  // reloading: the route is gone for a moment and the answer is not JSON.
+  if (failNext === body.method) {
+    failNext = null
+    throw new Error('host is reloading')
+  }
   return { json: async () => hostCall(body.method, body.params) }
 }
 
@@ -829,6 +837,50 @@ const typedPanel = await mount(panelComponent, panelProps('s12', 'tab12'))
 const typedSrc = String(framesOf(typedPanel.tree)[0].props.src)
 check('a restored typed box is carried in the shell URL', typedSrc.includes('d=custom') && typedSrc.includes('w=500') && typedSrc.includes('h=900'), typedSrc)
 check('a restored typed box is mirrored back to storage', readStored('dsh-sidebar-browser:tabs:s12').tabs[0].deviceWidth === 500, JSON.stringify(readStored('dsh-sidebar-browser:tabs:s12')))
+
+// ------------------------------------------- closing the last page
+
+// What comes back is the page that was on screen, not whatever address was
+// remembered before it: a redirect, an in-page route or a cross-origin move can
+// all leave the two out of step, and the person closing the tab means the page
+// they were looking at.
+storage.set('dsh-sidebar-browser:url', 'http://localhost:3000/stale')
+storage.set(
+  'dsh-sidebar-browser:tabs:s13',
+  JSON.stringify({
+    activeId: 't1',
+    tabs: [
+      { id: 't1', url: 'http://localhost:3000/live', title: '', zoom: 1, deviceKey: 'responsive', deviceWidth: 1280, deviceHeight: 800, landscape: false, port: 0 },
+    ],
+  }),
+)
+const onScreen = await mount(panelComponent, panelProps('s13', 'tab13'))
+check('a restored page is what is on screen', browsers.get('s13').tabs[0].url === 'http://localhost:3000/live', JSON.stringify(browsers.get('s13').tabs.map((tab) => tab.url)))
+findAll(onScreen.tree, byClass('dsh-sb-tabClose'))[0].props.onClick({ stopPropagation() {} })
+await settle(onScreen)
+check('closing it reopens the page that was on screen', browsers.get('s13').tabs[0]?.url === 'http://localhost:3000/live', JSON.stringify(browsers.get('s13').tabs.map((tab) => tab.url)))
+check('the reopened page becomes the remembered one', storage.get('dsh-sidebar-browser:url') === 'http://localhost:3000/live', String(storage.get('dsh-sidebar-browser:url')))
+
+// A reopen that fails must not wedge the panel on "正在打开…" with no way back:
+// while the host is reloading the call rejects, and that used to leave `busy`
+// set forever — including the guard the empty-browser reopen waited on.
+storage.delete('dsh-sidebar-browser:url')
+storage.delete('dsh-sidebar-browser:tabs:s14')
+storage.set('dsh-sidebar-browser:history', JSON.stringify([{ url: 'http://localhost:3000/admin', title: '' }]))
+const failing = await mount(panelComponent, panelProps('s14', 'tab14'))
+check('a page opens first', browsers.get('s14').tabs.length === 1, JSON.stringify(browsers.get('s14').tabs.map((tab) => tab.url)))
+failNext = 'browser-open'
+findAll(failing.tree, byClass('dsh-sb-tabClose'))[0].props.onClick({ stopPropagation() {} })
+await settle(failing)
+const wedged = find(failing.tree, byClass('dsh-sb-busy'))
+check('a failed reopen does not hang on 正在打开…', wedged !== undefined && wedged.props.children === '正在恢复浏览器…', JSON.stringify(wedged?.props.children))
+check('the failure is reported', String(find(failing.tree, byClass('dsh-sb-error'))?.props.children ?? '').includes('host is reloading'), JSON.stringify(find(failing.tree, byClass('dsh-sb-error'))?.props.children))
+// An empty panel has no controls of its own — the address bar lives in the
+// shell — so the way back is the composer button, which must still work.
+const recovery = await mount(pickerComponent, { sessionId: 's14', useInput: (selector) => selector({ draft: '' }), inputActions: { setDraft() {} } })
+find(recovery.tree, (node) => node.type === 'button').props.onClick()
+await settle(recovery)
+check('the composer still opens a page after a failed reopen', browsers.get('s14').tabs.length === 1, JSON.stringify(browsers.get('s14').tabs.map((tab) => tab.url)))
 
 console.log(failures === 0 ? '\nall checks passed' : `\n${failures} check(s) failed`)
 process.exit(failures === 0 ? 0 : 1)
