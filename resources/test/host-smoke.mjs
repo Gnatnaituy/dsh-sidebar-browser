@@ -210,6 +210,18 @@ check('zoom survives a state read', afterView.tabs[0].zoom === 0.5, String(after
 check('device survives a state read', afterView.tabs[0].deviceKey === 'phone-393', afterView.tabs[0].deviceKey)
 check('orientation survives a state read', afterView.tabs[0].landscape === true)
 
+// A typed box is data, not a preset: it rides with the tab, and it is held
+// inside the range the shell can render whatever a client sends.
+await invoke('browser-view', { sessionId: 's1', id: sameOriginTab.tabs[0].id, deviceKey: 'custom', landscape: false, width: 500, height: 900 })
+const typed = (await invoke('browser-state', { sessionId: 's1' })).tabs[0]
+check('a typed device box is stored', typed.deviceKey === 'custom' && typed.deviceWidth === 500 && typed.deviceHeight === 900, JSON.stringify({ key: typed.deviceKey, w: typed.deviceWidth, h: typed.deviceHeight }))
+await invoke('browser-view', { sessionId: 's1', id: sameOriginTab.tabs[0].id, width: 99999, height: 12 })
+const clamped = (await invoke('browser-state', { sessionId: 's1' })).tabs[0]
+check('a typed box is held inside the range', clamped.deviceWidth === 4096 && clamped.deviceHeight === 160, JSON.stringify({ w: clamped.deviceWidth, h: clamped.deviceHeight }))
+await invoke('browser-view', { sessionId: 's1', id: sameOriginTab.tabs[0].id, width: 'abc', height: null })
+const unchanged = (await invoke('browser-state', { sessionId: 's1' })).tabs[0]
+check('a nonsense size leaves the box alone', unchanged.deviceWidth === 4096 && unchanged.deviceHeight === 160, JSON.stringify({ w: unchanged.deviceWidth, h: unchanged.deviceHeight }))
+
 // Closing a tab releases its port only when its origin is no longer in use.
 const closed = await invoke('browser-close', { sessionId: 's1', id: sameOriginTab.tabs[1].id })
 check('closing a tab drops it from the list', closed.ok === true && closed.tabs.length === 2, JSON.stringify(closed).slice(0, 160))
@@ -228,6 +240,16 @@ check('a restored page gets a port', restored.tabs[0].port > 0, String(restored.
 check('a restored zoom is kept', restored.tabs[0].zoom === 1.5, String(restored.tabs[0].zoom))
 check('a restored device is kept', restored.tabs[1].deviceKey === 'tablet-820', restored.tabs[1].deviceKey)
 check('a restored active id maps to a real tab', restored.activeId === restored.tabs[1].id, restored.activeId)
+const restoredTyped = await invoke('browser-state', {
+  sessionId: 's3',
+  restore: { activeId: 'y1', tabs: [{ id: 'y1', url: `${target}/typed`, deviceKey: 'custom', deviceWidth: 500, deviceHeight: 900 }] },
+})
+check('a restored typed box is kept', restoredTyped.tabs[0].deviceWidth === 500 && restoredTyped.tabs[0].deviceHeight === 900, JSON.stringify({ w: restoredTyped.tabs[0].deviceWidth, h: restoredTyped.tabs[0].deviceHeight }))
+const fallbackTyped = await invoke('browser-state', {
+  sessionId: 's4',
+  restore: { activeId: 'z1', tabs: [{ id: 'z1', url: `${target}/typed`, deviceKey: 'custom' }] },
+})
+check('a typed box with no size falls back to the default', fallbackTyped.tabs[0].deviceWidth === 1280 && fallbackTyped.tabs[0].deviceHeight === 800, JSON.stringify({ w: fallbackTyped.tabs[0].deviceWidth, h: fallbackTyped.tabs[0].deviceHeight }))
 const liveWins = await invoke('browser-state', { sessionId: 's1', restore: { tabs: [{ url: 'http://127.0.0.1:9/ignored' }] } })
 check('live state beats a stale snapshot', liveWins.tabs.length === 2, String(liveWins.tabs.length))
 

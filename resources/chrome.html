@@ -52,7 +52,13 @@
           <button id="rotate" class="icon" type="button" title="横竖屏切换" aria-label="横竖屏切换">
             <svg viewBox="0 0 16 16" aria-hidden="true"><rect x="2.5" y="4" width="7" height="11" rx="1.4" fill="none" stroke="currentColor" stroke-width="1.2"/><rect x="10.5" y="2" width="3.4" height="6" rx="1" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>
           </button>
-          <span id="size" class="size" title="当前视口尺寸（页面按此宽度应用媒体查询）"></span>
+          <span id="size" class="size" role="button" tabindex="0" title="当前视口尺寸（页面按此宽度应用媒体查询）；点击可手动输入宽 × 高"></span>
+          <div id="sizeEdit" class="sizeEdit" hidden>
+            <input id="sizeW" class="sizeInput" type="number" inputmode="numeric" min="160" max="4096" step="1" placeholder="宽" aria-label="视口宽度" />
+            <span class="sizeTimes">×</span>
+            <input id="sizeH" class="sizeInput" type="number" inputmode="numeric" min="160" max="4096" step="1" placeholder="高" aria-label="视口高度" />
+            <span class="sizeHint">回车应用</span>
+          </div>
         </div>
       </div>
     </header>

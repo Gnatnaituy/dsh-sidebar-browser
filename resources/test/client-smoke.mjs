@@ -291,6 +291,8 @@ function hostCall(method, params) {
       url: origin + path,
       zoom: 1,
       deviceKey: 'responsive',
+      deviceWidth: 1280,
+      deviceHeight: 800,
       landscape: false,
       nav: 1,
       port: twin === undefined ? portSeed : twin.port,
@@ -306,6 +308,8 @@ function hostCall(method, params) {
         const tab = browser.tabs[browser.tabs.length - 1]
         if (typeof entry.zoom === 'number') tab.zoom = entry.zoom
         if (typeof entry.deviceKey === 'string') tab.deviceKey = entry.deviceKey
+        if (typeof entry.deviceWidth === 'number') tab.deviceWidth = entry.deviceWidth
+        if (typeof entry.deviceHeight === 'number') tab.deviceHeight = entry.deviceHeight
         if (typeof entry.landscape === 'boolean') tab.landscape = entry.landscape
         if (typeof entry.title === 'string') tab.title = entry.title
       }
@@ -352,6 +356,8 @@ function hostCall(method, params) {
       if (typeof params.zoom === 'number') tab.zoom = params.zoom
       if (typeof params.deviceKey === 'string') tab.deviceKey = params.deviceKey
       if (typeof params.landscape === 'boolean') tab.landscape = params.landscape
+      if (typeof params.width === 'number') tab.deviceWidth = params.width
+      if (typeof params.height === 'number') tab.deviceHeight = params.height
     }
     return { ok: true }
   }
@@ -665,14 +671,15 @@ const secondPage = browsers.get('s3').tabs[1]
 check('the new page is on its own port', secondPage.port !== browserTabs[0].port, `${browserTabs[0].port} vs ${secondPage.port}`)
 check('the new page keeps its own path', secondPage.path === '/other', secondPage.path)
 
-// Zoom and device state reported by a shell are stored on the host.
+// Zoom, device and a typed box reported by a shell are stored on the host.
 dispatchMessage({
   source: frames2[1].contentWindow,
-  data: { __dshPicker: true, source: 'dsh-sidebar-browser-shell', ev: 'view', zoom: 0.5, deviceKey: 'phone-393', landscape: true },
+  data: { __dshPicker: true, source: 'dsh-sidebar-browser-shell', ev: 'view', zoom: 0.5, deviceKey: 'phone-393', landscape: true, width: 500, height: 900 },
 })
 const viewCall = calls.filter((call) => call.method === 'browser-view').pop()
 check('a shell zoom change is stored on the host', viewCall !== undefined && viewCall.params.zoom === 0.5, JSON.stringify(viewCall?.params))
 check('a shell device change is stored on the host', viewCall.params.deviceKey === 'phone-393' && viewCall.params.landscape === true, JSON.stringify(viewCall?.params))
+check('a shell size change is stored on the host', viewCall.params.width === 500 && viewCall.params.height === 900, JSON.stringify(viewCall?.params))
 
 // A remount restores every open page.
 await auto.unmount()
@@ -802,6 +809,26 @@ const chipStore = await mount(titleComponent, {
   useTabInfo: () => ({ tab: { id: 'tab-unknown', kind: 'sidebar-browser', title: '浏览器 · 拾取' } }),
 })
 check('the sidebar chip falls back to the plugin title', JSON.stringify(chipStore.tree).includes('浏览器 · 拾取'))
+
+// ------------------------------------------------------ a typed device box
+
+// A size the user typed is not a preset, so it has to travel as data: the host
+// keeps it per tab, the panel mirrors it into the snapshot, and the shell URL
+// carries it beside the preset key — otherwise a tab restored in 500×900 would
+// come back as whatever the fallback box is.
+storage.set(
+  'dsh-sidebar-browser:tabs:s12',
+  JSON.stringify({
+    activeId: 't1',
+    tabs: [
+      { id: 't1', url: 'http://localhost:3000/typed', title: '', zoom: 1, deviceKey: 'custom', deviceWidth: 500, deviceHeight: 900, landscape: false, port: 0 },
+    ],
+  }),
+)
+const typedPanel = await mount(panelComponent, panelProps('s12', 'tab12'))
+const typedSrc = String(framesOf(typedPanel.tree)[0].props.src)
+check('a restored typed box is carried in the shell URL', typedSrc.includes('d=custom') && typedSrc.includes('w=500') && typedSrc.includes('h=900'), typedSrc)
+check('a restored typed box is mirrored back to storage', readStored('dsh-sidebar-browser:tabs:s12').tabs[0].deviceWidth === 500, JSON.stringify(readStored('dsh-sidebar-browser:tabs:s12')))
 
 console.log(failures === 0 ? '\nall checks passed' : `\n${failures} check(s) failed`)
 process.exit(failures === 0 ? 0 : 1)
