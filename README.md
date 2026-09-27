@@ -91,8 +91,8 @@ npm i -D playwright-core && npm run test:browser    # 真 Chromium 跑完整流�
 | `proxy-smoke.mjs` | 外壳资源、能力 cookie 门禁、目标文档与子资源代理、`frame-ancestors` 摘除、pick 接收 |
 | `tunnel-smoke.mjs` | 裸 socket 跑 `Upgrade`：101 握手、`Host` 改写、`Sec-WebSocket-Accept`、双向字节 |
 | `host-smoke.mjs` | `/invoke` 全部方法、标签增删改选、同源共端口 / 异源分端口 / 关闭释放、快照还原、`read_picked_element` |
-| `client-smoke.mjs` | 装载与页签槽位注册、空则开页（含默认地址与无启动页）、关最后一个标签自动重开、切标签与拾取后不重载、缩放设备随 URL 还原、拾取去重写入草稿 |
-| `browser-e2e.mjs` | 上面全部在真 Chromium 里跑通：视口 / 横竖屏 / 缩放、同异源导航分流、手机视口下高亮与拾取、登录自动填入、密码框在元素记录中被抹除 |
+| `client-smoke.mjs` | 装载与页签槽位注册、空则开页（含默认地址与无启动页）、关最后一个标签自动重开、切标签与拾取后不重载、缩放设备随 URL 还原、拾取去重写入草稿、自定义 scheme（`dsh-app://app`）下帧仍指向 loopback |
+| `browser-e2e.mjs` | 上面全部在真 Chromium 里跑通：视口 / 横竖屏 / 缩放、同异源导航分流、手机视口下高亮与拾取、登录自动填入、密码框在元素记录中被抹除、跨站页面里框架同样加载（app 的 `dsh-app://app` 形状） |
 
 `npm run screenshots` 生成上架截图。
 
@@ -116,7 +116,7 @@ docs/research/              动手前对 DSH 侧边栏 / 宿主 / 旧插件的�
 - 代理会摘掉被测页面的 CSP 与 `X-Frame-Options`——这正是原本不能被框的站点现在能被框的原因，也意味着**页面的安全策略在侧栏里不生效**。
 - `/dsh-sidebar-browser/invoke` 走 webServer 的精确路由，**不在 GUI 的登录围栏内**（和它并列的插件路由都一样）。GUI 默认只绑 `127.0.0.1`，但如果你把 web 服务改成对外监听，这个端口上任何人都能读写浏览器状态。
 - 设备预览是**视口预览**：媒体查询、布局、滚动按设备尺寸生效，但 `devicePixelRatio`、`pointer: coarse`、`hover: none`、User-Agent、触摸事件仍是桌面浏览器的。
-- GUI 需跑在 `localhost` / `127.0.0.1`（DeepSeek Harness 默认）；从别的机器打开 GUI 时面板拿不到本机端口。
+- 面板窗口和代理都必须在本机：代理只绑 `127.0.0.1`，帧地址也一律按 loopback 拼（GUI 自己是 `localhost` / `127.0.0.1` 时沿用它的主机名，保持同站；DeepSeek Harness 的 GUI 跑在 `dsh-app://app`，不是 http 源，所以显式用 `127.0.0.1`）。从别的机器打开 GUI 时，浏览器到不了这台机器的 loopback 端口。
 - 页签类型按 kind 唯一，所以浏览器面板同时只有一个，标签页在面板内部；内置的「浏览器」是另一个 kind，两边各自开各自的。
 - 元素按「光标下最内层元素」命中，高亮会先告诉你要选的是哪一层；嵌套 iframe 内部的元素暂不支持。
 - DSH 重启后页面会重新加载（地址 / 标签 / 缩放 / 视口还原），重启前未提交的表单内容不保留。
