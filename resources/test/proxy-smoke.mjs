@@ -78,6 +78,9 @@ const echo = await fetch(`http://127.0.0.1:${session.port}/api/echo?a=1`, {
 const echoBody = await echo.json()
 check('an api call keeps its query', echoBody.query === '?a=1', JSON.stringify(echoBody))
 check('a cookie the browser stored for the proxy is forwarded upstream', String(echoBody.cookie).includes('fixture_session=xyz'), echoBody.cookie)
+// The upstream must be addressed as the site, not as this port: a vhost or a
+// CDN answers a foreign Host by closing the connection or with 421.
+check('the target is addressed by its own host', echoBody.host === new URL(target).host, `${echoBody.host} (target ${new URL(target).host})`)
 
 const redirect = await fetch(`http://127.0.0.1:${session.port}/go`, { headers: { cookie }, redirect: 'manual' })
 const location = redirect.headers.get('location') ?? ''
@@ -95,6 +98,36 @@ const missing = await fetch(`http://127.0.0.1:${session.port}/__dsh_shell__/nope
 check('unknown picker paths 404', missing.status === 404, `status ${missing.status}`)
 
 session.close()
+
+// ------------------------------------------------------------------- https
+
+// A secure target takes a different request module than a plain one. The
+// fixture serves the same site over TLS from the throwaway certificate in
+// `./tls.mjs`, which the proxy accepts because it disables verification for
+// target connections — the only way a dev server with a self-signed
+// certificate can be inspected at all.
+if (fixture !== undefined) {
+  const secureFixture = await startFixtureTarget({ tls: true })
+  const secure = new ProxySession({
+    token: mintToken(),
+    assets,
+    onPick: () => ({ ok: true }),
+    log: () => {},
+  })
+  await secure.start()
+  secure.setTarget(secureFixture.origin)
+  const secureShell = await fetch(`http://127.0.0.1:${secure.port}/__dsh_shell__/chrome.html`)
+  const secureCookie = (secureShell.headers.get('set-cookie') ?? '').split(';')[0]
+  const securePage = await fetch(`http://127.0.0.1:${secure.port}/deep/page`, { headers: { cookie: secureCookie } })
+  const secureHtml = await securePage.text()
+  check('an https target proxies', securePage.status === 200, `status ${securePage.status}`)
+  check('the https target answers its own document', secureHtml.includes('<html'))
+  const secureEcho = await (await fetch(`http://127.0.0.1:${secure.port}/api/echo`, { headers: { cookie: secureCookie } })).json()
+  check('the https target is addressed by its own host', secureEcho.host === new URL(secureFixture.origin).host, secureEcho.host)
+  secure.close()
+  secureFixture.close()
+}
+
 fixture?.close()
 console.log(failures === 0 ? '\nall checks passed' : `\n${failures} check(s) failed`)
 process.exit(failures === 0 ? 0 : 1)

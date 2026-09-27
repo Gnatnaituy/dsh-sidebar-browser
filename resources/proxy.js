@@ -18,6 +18,7 @@
  * any other WebSocket protocol work unmodified.
  */
 import http from 'node:http'
+import https from 'node:https'
 import net from 'node:net'
 import tls from 'node:tls'
 import { randomBytes } from 'node:crypto'
@@ -333,9 +334,13 @@ export class ProxySession {
     for (const name of Object.keys(headers)) {
       if (HOP_BY_HOP.has(name)) delete headers[name]
     }
-    // Keep the incoming Host: the inspected app sees the same host in `Host`
-    // and `Origin`, which is what dev servers' cross-origin checks compare.
-    const upstreamReq = (secure ? http : http).request(
+    // Address the target the way a browser would. The incoming `Host` names
+    // *this* port, and a vhost or a CDN closes the connection or answers 421
+    // when it does not match the site being asked for, so it cannot be
+    // forwarded. `Origin`/`Referer` keep the page's real origin (the proxy's),
+    // which is what the framed app's own same-origin checks compare against.
+    headers.host = target.host
+    const upstreamReq = (secure ? https : http).request(
       {
         protocol: secure ? 'https:' : 'http:',
         hostname: target.hostname,

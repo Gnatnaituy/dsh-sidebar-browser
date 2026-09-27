@@ -472,10 +472,19 @@ check('the migration records that it ran', storage.has('dsh-sidebar-browser:migr
 for (const key of ['dsh-sidebar-browser:url', 'dsh-sidebar-browser:ports', 'dsh-sidebar-browser:tabs:legacy-session', 'dsh-sidebar-browser:zoom', 'dsh-sidebar-browser:migrated-from-element-picker']) storage.delete(key)
 
 check('composer seat is claimed', slotRegistrations.some((entry) => entry.definition && entry.definition.name === 'conversation.input.left'))
-check('tab type is registered as a native page', registryCalls.length === 1 && registryCalls[0].kind === 'browser', JSON.stringify(registryCalls[0]?.kind))
-check('tab type id is namespaced', registryCalls[0]?.id === 'dsh-sidebar-browser:browser', registryCalls[0]?.id)
-check('tab type carries a guide entry', registryCalls[0]?.guide?.[0]?.title() === '浏览器')
-check('tab body is registered under that id', slotRegistrations.some((entry) => entry.definition && entry.definition.name === 'sidebar.right.pane.tab' && entry.definition.key === 'dsh-sidebar-browser:browser'))
+check('tab type is registered as a native page', registryCalls.length === 1 && registryCalls[0].kind === 'sidebar-browser', JSON.stringify(registryCalls[0]?.kind))
+// The stock app ships a browser tab of its own under `browser`; an extension
+// registration takes that kind over, which would shadow it (and swallow the
+// chat links addressed to it), so this plugin must stay off it.
+check('the tab kind leaves the stock browser alone', registryCalls[0]?.kind !== 'browser')
+check('tab type id is namespaced', registryCalls[0]?.id === 'dsh-sidebar-browser', registryCalls[0]?.id)
+check('tab type carries a guide entry', registryCalls[0]?.guide?.[0]?.title() === '浏览器 · 拾取', registryCalls[0]?.guide?.[0]?.title())
+// The sidebar keys guide entries by id and refuses a type whose entries repeat one.
+check('the guide entry carries an id', String(registryCalls[0]?.guide?.[0]?.id ?? '') !== '', registryCalls[0]?.guide?.[0]?.id)
+// A page must survive its tab losing the seat (another tab active, the sidebar
+// collapsed) rather than reload when it comes back.
+check('the tab type keeps its frames mounted', registryCalls[0]?.keepMounted === true, String(registryCalls[0]?.keepMounted))
+check('tab body is registered under that id', slotRegistrations.some((entry) => entry.definition && entry.definition.name === 'sidebar.right.pane.tab' && entry.definition.key === 'dsh-sidebar-browser'))
 check('tab chip title is registered', slotRegistrations.some((entry) => entry.definition && entry.definition.name === 'sidebar.right.pane.tab.title'))
 
 const pickerComponent = slotRegistrations.find((entry) => entry.definition && entry.definition.name === 'conversation.input.left').component
@@ -492,11 +501,11 @@ const panelProps = (sessionId, tabId) => ({
   useTabInfo: () => ({
     tab: {
       id: tabId ?? 'tab1',
-      kind: 'browser',
-      title: '浏览器',
-      contentId: 'sidebar://browser',
+      kind: 'sidebar-browser',
+      title: '浏览器 · 拾取',
+      contentId: 'sidebar://sidebar-browser',
       visible: true,
-      navigation: { address: 'sidebar://browser', params: undefined, revision: 1 },
+      navigation: { address: 'sidebar://sidebar-browser', params: undefined, revision: 1 },
       signal: new AbortController().signal,
     },
   }),
@@ -521,7 +530,7 @@ check('the composer checks the browser before opening anything', calls.some((cal
 const firstOpen = calls.filter((call) => call.method === 'browser-open')
 check('the composer opens the remembered page when the browser is empty', firstOpen.length === 1 && firstOpen[0].params.newTab === true, JSON.stringify(firstOpen[0]?.params))
 const openedTab = calls.find((call) => call.method === 'openTabIn')
-check('clicking the button reveals the browser tab', openedTab !== undefined && openedTab.kind === 'browser', JSON.stringify(openedTab))
+check('clicking the button reveals the browser tab', openedTab !== undefined && openedTab.kind === 'sidebar-browser', JSON.stringify(openedTab))
 
 // With pages already open the button must only reveal — never navigate away
 // from the page the user is working in.
@@ -563,25 +572,32 @@ check('a new-tab control exists', find(auto.tree, byClass('dsh-sb-newtab')) !== 
 check('the picked count is seeded from the host', find(auto.tree, byClass('dsh-sb-stripTools')).props.children[0].props.children === '已拾取 2')
 check('the open pages are mirrored into local storage', storage.has('dsh-sidebar-browser:tabs:s3'))
 
-// ------------------------------------------- the panel: the start page
+// A root-path address is the common first open (`https://example.com`): the
+// shell must still receive the path, or it never points its site frame
+// anywhere and the page stays blank behind the placeholder.
+storage.set('dsh-sidebar-browser:url', 'https://example.com/')
+storage.set('dsh-sidebar-browser:history', JSON.stringify([{ url: 'https://example.com/', title: 'Example' }]))
+const rootOpen = await mount(panelComponent, panelProps('s9', 'tab9'))
+const rootFrames = framesOf(rootOpen.tree)
+check('a root-path page still opens a frame', rootFrames.length === 1, JSON.stringify(browsers.get('s9').tabs.map((tab) => tab.url)))
+check('the shell URL carries the root path', String(rootFrames[0].props.src).includes('p=%2F'), rootFrames[0].props.src)
 
-// Only a browser that has never been used anywhere shows a launcher.
+// ------------------------------------------- the panel: a never-used browser
+
+// There is no start page: even a browser that has never been used anywhere
+// opens the default address straight away, so the page with the shell's own
+// address bar is what comes up.
 storage.delete('dsh-sidebar-browser:url')
 storage.delete('dsh-sidebar-browser:history')
 const first = await mount(panelComponent, panelProps('s4', 'tab4'))
-check('a never-used browser shows the start page', find(first.tree, (node) => node.type === 'form') !== undefined)
-check('the start page documents the placeholder syntax', JSON.stringify(first.tree).includes('[标签][DOMn]'))
-find(first.tree, byClass('dsh-sb-input')).props.onChange({ target: { value: 'localhost:3000/admin' } })
-await settle(first)
-find(first.tree, (node) => node.type === 'form').props.onSubmit({ preventDefault() {} })
-await settle(first)
-check('submitting the start page opens a page', findAll(first.tree, byClass('dsh-sb-tab')).length === 1, String(findAll(first.tree, byClass('dsh-sb-tab')).length))
-check('the opened address is remembered', storage.get('dsh-sidebar-browser:url') === 'http://localhost:3000/admin', String(storage.get('dsh-sidebar-browser:url')))
-check('the opened address enters the recent list', JSON.parse(storage.get('dsh-sidebar-browser:history'))[0].url === 'http://localhost:3000/admin')
+check('a never-used browser opens the default address by itself', findAll(first.tree, byClass('dsh-sb-tab')).length === 1, JSON.stringify(browsers.get('s4').tabs.map((tab) => tab.url)))
+check('the default address is what opens', browsers.get('s4').tabs[0].url === 'http://localhost:3000/', browsers.get('s4').tabs[0].url)
+check('no start page exists anywhere', find(first.tree, (node) => node.type === 'form') === undefined && find(first.tree, byClass('dsh-sb-start')) === undefined)
+check('the default open lands on the shell with the root path', String(framesOf(first.tree)[0].props.src).includes('p=%2F'), framesOf(first.tree)[0].props.src)
+check('the opened address is remembered', storage.get('dsh-sidebar-browser:url') === 'http://localhost:3000/', String(storage.get('dsh-sidebar-browser:url')))
 
-// Closing every page lands back on the start page, where the recent list is the
-// useful part.
-const onlyTab = browsers.get('s4').tabs[0]
+// Closing the last page brings the browser straight back on the most recent
+// address — there is no start page to fall through to.
 storage.set(
   'dsh-sidebar-browser:history',
   JSON.stringify([
@@ -593,26 +609,21 @@ storage.delete('dsh-sidebar-browser:url')
 const relaunch = await mount(panelComponent, panelProps('s6', 'tab6'))
 check('a browser with history opens the most recent address', findAll(relaunch.tree, byClass('dsh-sb-tab')).length === 1, JSON.stringify(browsers.get('s6').tabs.map((tab) => tab.url)))
 check('the auto-opened address is the newest history entry', browsers.get('s6').tabs[0].url === 'http://localhost:3000/admin?section=shop-products', browsers.get('s6').tabs[0].url)
-void onlyTab
+findAll(relaunch.tree, byClass('dsh-sb-tabClose'))[0].props.onClick({ stopPropagation() {} })
+await settle(relaunch)
+check('closing the last page re-opens the browser', findAll(relaunch.tree, byClass('dsh-sb-tab')).length === 1, JSON.stringify(browsers.get('s6').tabs.map((tab) => tab.url)))
+check('the reopened page is the most recent address again', browsers.get('s6').tabs[0].url === 'http://localhost:3000/admin?section=shop-products', browsers.get('s6').tabs[0].url)
 
-// The start page lists the recent visits and the saved logins.
-storage.delete('dsh-sidebar-browser:url')
-storage.delete('dsh-sidebar-browser:history')
+// Saved logins survive all of this untouched: the panel fills them into pages
+// and raises the save bar, but never needs a start page to manage them.
 storage.set(
   'dsh-sidebar-browser:credentials',
   JSON.stringify([{ origin: 'http://localhost:8081', username: 'ops', password: 's3cret', updatedAt: 1 }]),
 )
-const launcher = await mount(panelComponent, panelProps('s7', 'tab7'))
-const rows = findAll(launcher.tree, byClass('dsh-sb-itemMain'))
-check('the start page lists a recent row per address', rows.length === 0, String(rows.length))
-const loginRows = findAll(launcher.tree, byClass('dsh-sb-itemTitle')).map((node) => node.props.children)
-check('the start page lists a saved login', loginRows.includes('ops'), JSON.stringify(loginRows))
-check('the saved login shows its site', JSON.stringify(launcher.tree).includes('localhost:8081'))
-findAll(launcher.tree, byClass('dsh-sb-itemX'))[0].props.onClick()
-await settle(launcher)
-const remainingLogins = readStored('dsh-sidebar-browser:credentials')
-check('a saved login can be forgotten', !Array.isArray(remainingLogins) || remainingLogins.length === 0, JSON.stringify(remainingLogins))
-check('forgetting shows a notice', JSON.stringify(launcher.tree).includes('已删除'), JSON.stringify(findAll(launcher.tree, byClass('dsh-sb-notice')).map((node) => node.props.children)))
+const withLogins = await mount(panelComponent, panelProps('s7', 'tab7'))
+check('saved logins do not bring a start page back', find(withLogins.tree, (node) => node.type === 'form') === undefined)
+check('an empty browser still auto-opens with logins stored', findAll(withLogins.tree, byClass('dsh-sb-tab')).length === 1, JSON.stringify(browsers.get('s7').tabs.map((tab) => tab.url)))
+storage.delete('dsh-sidebar-browser:credentials')
 
 // The port a site used is remembered, and asked for again: that is what keeps a
 // site on the same browser origin (and therefore signed in) across a restart.
@@ -769,9 +780,9 @@ check('closing a page removes its frame', framesOf(remounted.tree).length === 1)
 // ------------------------------------------------------------ the tab chip
 
 const chipStore = await mount(titleComponent, {
-  useTabInfo: () => ({ tab: { id: 'tab-unknown', kind: 'browser', title: '浏览器' } }),
+  useTabInfo: () => ({ tab: { id: 'tab-unknown', kind: 'sidebar-browser', title: '浏览器 · 拾取' } }),
 })
-check('the sidebar chip falls back to the plugin title', JSON.stringify(chipStore.tree).includes('浏览器'))
+check('the sidebar chip falls back to the plugin title', JSON.stringify(chipStore.tree).includes('浏览器 · 拾取'))
 
 console.log(failures === 0 ? '\nall checks passed' : `\n${failures} check(s) failed`)
 process.exit(failures === 0 ? 0 : 1)

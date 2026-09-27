@@ -2,11 +2,11 @@
  * Undo {@link ./install-into-profile.mjs}: unmount the plugin, drop the
  * dependency and (optionally) re-enable the window-based picker it replaced.
  *
- * Usage: node tools/uninstall-from-profile.mjs [--profile <dir>] [--keep-legacy-disabled] [--dry-run]
+ * Usage: node tools/uninstall-from-profile.mjs [--profile <dir>] [--name <profile>] [--keep-legacy-disabled] [--dry-run]
  */
 import { existsSync, lstatSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
-import { homedir } from 'node:os'
-import { join, resolve } from 'node:path'
+import { join } from 'node:path'
+import { locateProfile } from './profile-location.mjs'
 
 const PACKAGE_NAME = 'dsh-sidebar-browser'
 /** Names this package was installed under before the rename. */
@@ -23,8 +23,8 @@ const option = (name, fallback) => {
   return at >= 0 && argv[at + 1] !== undefined ? argv[at + 1] : fallback
 }
 
-const dshHome = process.env.DSH_HOME ?? join(homedir(), 'Library', 'Application Support', 'dsh-desktop', 'harness')
-const profileDir = resolve(option('--profile', join(dshHome, 'profiles', option('--name', 'web'))))
+const profile = locateProfile({ profile: option('--profile', undefined), name: option('--name', undefined) })
+const profileDir = profile.dir
 const dryRun = flag('--dry-run')
 const restoreLegacy = !flag('--keep-legacy-disabled')
 
@@ -34,9 +34,11 @@ const restoreLegacy = !flag('--keep-legacy-disabled')
 const say = (message) => console.log(`${dryRun ? '[dry-run] ' : ''}${message}`)
 
 if (!existsSync(join(profileDir, 'package.json'))) {
-  console.error(`找不到 profile：${profileDir}`)
+  console.error(`找不到 profile：${profileDir}（或用 --profile 指定）`)
   process.exit(1)
 }
+say(`app:     ${profile.app ?? '未知（--profile 指定的目录）'}`)
+say(`profile: ${profileDir}`)
 
 // ------------------------------------------------------------------- unmount
 

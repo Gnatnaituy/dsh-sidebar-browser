@@ -4,6 +4,30 @@
 the `sidebar.right.pane.tab` slot. How a third-party client plugin registers a **new tab type**
 and opens it in DSH's own right Sidebar — no `dsh-better-sidebar` required.
 
+> **Still current in 0.1.7-rc.2 (DeepSeek Harness), with three additions** — re-verified against
+> `@deepseek-ai/dsh-client-ui-sidebar-right` 0.1.7-rc.2 when this plugin moved off DSH Desktop:
+>
+> - **The app now ships a browser tab of its own.** `@deepseek-ai/dsh-client-ui-sidebar-browser`
+>   registers kind `browser` at band `builtin`, and its mount row is gated to the `desktop` profile
+>   (`dsh-web-app/cordis.patch.yml`: `disabled: !!js "ctx.get('profileContext')?.name !== 'desktop'"`).
+>   An `extension` registration **coexists with and takes over** a builtin of the same kind, so a
+>   plugin that wants its own browser must pick a kind of its own. This one uses `sidebar-browser`.
+>   The stock tab is also what `dsh-client-ui-chat` addresses when a chat link says "open in the
+>   sidebar" (`openTab("browser", { params: { url } })`), which a takeover would silently swallow.
+> - **`definition.keepMounted`** (new field): a tab body is kept mounted across seat changes only
+>   when `keepMounted === true` (`TabSlot`, `const retained = seat === "sidebar.right.pane.tab" &&
+>   definition?.keepMounted === true`). Without it every activation tears the body down and a framed
+>   page reloads when it comes back.
+> - **Guide entries are keyed by `id`** and a type whose entries repeat one **throws** at
+>   `register()`; the renderer keys the guide by `[providerId, entry.id]`.
+> - **`ctx.inject(deps, callback)` returns the child fiber, not a disposer.** The teardown is the
+>   function the *callback* returns; calling the returned value throws `TypeError`.
+>
+> The profile side changed too: the loader now hot-reloads `dsh.profile.bundles` and
+> `cordis.patch.yml` (`@deepseek-ai/dsh-hmr`), and composition is rebuilt from scratch
+> (`prepareProfilePatches` collapses the layers into one `insert` over an empty root), so the old
+> "re-applied insert leaves a duplicate loader entry id" caveat no longer applies.
+
 Researched from:
 
 | Source | Path |

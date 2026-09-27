@@ -16,11 +16,18 @@ import { dirname, join } from 'node:path'
 import { ProxySession, mintToken } from '../resources/proxy.js'
 import { startFixtureTarget } from '../resources/test/fixture.mjs'
 import { loadPlaywright, browserLaunchOptions } from '../resources/test/driver.mjs'
-import { panelCss, startPageHtml } from '../resources/test/start-page-preview.mjs'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const root = join(here, '..')
 const assets = join(root, 'assets')
+
+/** @returns {Promise<string>} the panel's own stylesheet, from the client bundle. */
+async function panelCss() {
+  const client = await readFile(join(root, 'lib', 'client.js'), 'utf8')
+  const styles = /var STYLE_CSS = (\[[\s\S]*?\])\.join\(''\)/.exec(client)
+  if (styles === null) throw new Error('could not find STYLE_CSS in lib/client.js')
+  return eval(styles[1]).join('')
+}
 
 /** DSH's own design tokens, which the panel stylesheet expects. */
 const TOKENS = `
@@ -34,7 +41,6 @@ const TOKENS = `
     --dsw-font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;
   }`
 
-const KEY = `<svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="5.4" cy="10.6" r="2.6" stroke="currentColor" stroke-width="1.3"/><path d="M7.3 8.7 12.6 3.4M10.9 5.1l1.5 1.5M12.4 3.6l1.4 1.4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>`
 
 /**
  * The tab strip, mirroring `BrowserPanel`'s render.
@@ -149,17 +155,13 @@ await shoot(
   SIZE,
 )
 
-// 3. The start page, rendered from the panel's own stylesheet and markup.
-await shoot(startPageHtml(), 'screenshot-3.png', { width: 830, height: 680 })
-
 await writeFile(
   join(root, 'screenshots.json'),
-  `${JSON.stringify(['assets/screenshot-1.png', 'assets/screenshot-2.png', 'assets/screenshot-3.png'], null, 2)}\n`,
+  `${JSON.stringify(['assets/screenshot-1.png', 'assets/screenshot-2.png'], null, 2)}\n`,
 )
 
 await browser.close()
 stage.close()
 session.close()
 fixture.close()
-console.log('wrote assets/screenshot-1..3.png and screenshots.json')
-void KEY
+console.log('wrote assets/screenshot-1..2.png and screenshots.json')

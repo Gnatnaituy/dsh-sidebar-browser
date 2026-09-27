@@ -53,7 +53,6 @@
     "test": "node resources/test/proxy-smoke.mjs && node resources/test/tunnel-smoke.mjs && node resources/test/host-smoke.mjs && node resources/test/client-smoke.mjs",
     "test:browser": "node resources/test/browser-e2e.mjs",
     "test:all": "npm test && npm run test:browser",
-    "preview:start": "node resources/test/start-page-preview.mjs resources/test/start-page.png",
     "screenshots": "node tools/make-screenshots.mjs"
   },
   "repository": {
