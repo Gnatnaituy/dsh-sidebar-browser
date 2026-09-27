@@ -151,6 +151,29 @@ const summary = prompts.get('dsh-sidebar-browser').text()
 check('prompt lists the element', summary.includes('DOM1=') && summary.includes('提交订单'), summary.split('\n')[1])
 check('prompt names the tool', summary.includes('read_picked_element'))
 
+// The prompt block is a `systemPrompt.context`, and the host interpolates those
+// as `{{name}}` templates: a complete group naming an unregistered variable
+// throws while the turn is assembled. A page is free to contain template source
+// — the usual target here is a dev server — so page-derived text must never
+// reach it as a group.
+const templated = await fetch(`http://127.0.0.1:${port1}/__dsh_shell__/pick`, {
+  method: 'POST',
+  headers: { cookie, 'content-type': 'application/json' },
+  body: JSON.stringify({
+    tag: 'span',
+    text: '{{ item.name }}',
+    selector: 'body > ul > li > span',
+    domPath: 'body > ul > li > span',
+    pageUrl: `${target}/list?q={{query}}`,
+    outerHTML: '<span>{{ item.name }}</span>',
+  }),
+})
+check('a templated element is recorded', (await templated.json()).ok === true)
+const braced = prompts.get('dsh-sidebar-browser').text()
+check('the prompt block still lists it', braced.includes('DOM2=') && braced.includes('item.name'))
+check('page text cannot open a prompt variable', !braced.includes('{{'), braced.split('\n').find((line) => line.includes('DOM2=')))
+check('the element itself keeps its braces', tools.get('read_picked_element').execute({ id: 'DOM2' }).element.text === '{{ item.name }}')
+
 // A second page on another origin gets its own port, so the two sites cannot
 // share cookies or web storage.
 const second = await invoke('browser-open', { sessionId: 's1', url: 'http://127.0.0.1:9/other', newTab: true })

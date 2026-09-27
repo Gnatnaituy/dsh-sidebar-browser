@@ -12,9 +12,13 @@
  *   - a query string and a deep path;
  *   - a media query the preview is supposed to trigger.
  *
- * `startFixtureTarget()` returns the running server and its origin.
+ * `startFixtureTarget()` returns the running server and its origin;
+ * `startFixtureTarget({ tls: true })` serves the same site over HTTPS from the
+ * throwaway certificate in `./tls.mjs`, so the secure upstream path is covered.
  */
 import http from 'node:http'
+import https from 'node:https'
+import { FIXTURE_KEY, FIXTURE_CERT } from './tls.mjs'
 
 const PAGE = `<!doctype html>
 <html lang="zh-CN">
@@ -182,12 +186,13 @@ const HOSTILE_HEADERS = {
 
 /**
  * Start the fixture site.
+ * @param {{tls?: boolean}} [options] - serve HTTPS from the fixture certificate.
  * @returns {Promise<{origin: string, close: () => void, requests: string[]}>} the running server.
  */
-export async function startFixtureTarget() {
+export async function startFixtureTarget(options = {}) {
   /** Every path the fixture was asked for, for proxy assertions. */
   const requests = []
-  const server = http.createServer((req, res) => {
+  const handler = (req, res) => {
     const url = new URL(req.url ?? '/', 'http://fixture')
     requests.push(`${url.pathname}${url.search}`)
 
@@ -218,7 +223,17 @@ export async function startFixtureTarget() {
     }
     if (url.pathname === '/api/echo') {
       res.writeHead(200, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' })
-      res.end(JSON.stringify({ ok: true, path: url.pathname, query: url.search, cookie: req.headers.cookie ?? '' }))
+      res.end(
+        JSON.stringify({
+          ok: true,
+          path: url.pathname,
+          query: url.search,
+          cookie: req.headers.cookie ?? '',
+          // What the upstream was addressed as: a proxy that forwards the
+          // incoming Host names itself, which a vhost or CDN rejects.
+          host: req.headers.host ?? '',
+        }),
+      )
       return
     }
     if (url.pathname === '/go') {
@@ -234,11 +249,12 @@ export async function startFixtureTarget() {
     }
     res.writeHead(404, { 'content-type': 'text/plain; charset=utf-8' })
     res.end('not found')
-  })
+  }
+  const server = options.tls === true ? https.createServer({ key: FIXTURE_KEY, cert: FIXTURE_CERT }, handler) : http.createServer(handler)
   await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve))
   const port = server.address().port
   return {
-    origin: `http://localhost:${port}`,
+    origin: `${options.tls === true ? 'https' : 'http'}://localhost:${port}`,
     requests,
     close: () => server.close(),
   }

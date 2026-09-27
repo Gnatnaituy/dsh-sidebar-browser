@@ -1095,9 +1095,13 @@ function withScheme(text) {
         targetOrigin = data.target
         targetEl.textContent = data.target
       }
-      if (initialPath !== '') {
+      // A shell opened without `p` is not "no page": the panel omits the
+      // parameter only for the target's root, and this port would not exist
+      // without a target. Start on the root instead of waiting on the
+      // placeholder for a page that was already asked for.
+      if (initialPath !== '' || targetOrigin !== '') {
         blankEl.hidden = true
-        frame.src = initialPath
+        frame.src = initialPath === '' ? '/' : initialPath
       }
       applyView()
       // A fast page can finish loading before this metadata arrives, in which

@@ -1,5 +1,5 @@
 /**
- * Install this plugin into a DSH web profile.
+ * Install this plugin into a DSH profile.
  *
  * Deliberately not `dsh plugin add`: that runs pnpm, which re-resolves the
  * whole profile (including the GitHub and generation-linked dependencies) over
@@ -8,23 +8,26 @@
  *
  *   1. link the package into the profile's `node_modules`;
  *   2. list it in `dependencies` and in `dsh.profile.bundles` — the bundle form
- *      is the supported mount. A hand-written row in the profile's own
- *      `cordis.patch.yml` also loads, but the loader applies that file as a
- *      delta on reload and a re-applied insert leaves a stale duplicate entry
- *      behind (`duplicate loader entry id`), while bundle layers are rebuilt
- *      from scratch every time;
+ *      is the supported mount, and the one this package declares for itself in
+ *      `cordis.patch.yml`. A hand-written row in the profile's own
+ *      `cordis.patch.yml` would be a second mount of the same entry id;
  *   3. disable the previous window-based picker when it is still installed,
  *      since it registers a tool of the same name.
  *
- * A bundle change is a boot-time change: DSH must be restarted. Client-only
- * edits afterwards need just a hard refresh.
+ * The profile is found via `./profile-location.mjs`: `~/.dsh/profiles/desktop`
+ * for DeepSeek Harness, `~/Library/Application Support/dsh-desktop/harness/
+ * profiles/web` for the older DSH Desktop.
  *
- * Usage: node tools/install-into-profile.mjs [--profile <dir>] [--copy] [--dry-run]
+ * DeepSeek Harness hot-reloads both the profile manifest's `bundles` list and
+ * the profile patch, so the mount lands without a restart. DSH Desktop mounts
+ * bundles at boot and must be restarted.
+ *
+ * Usage: node tools/install-into-profile.mjs [--profile <dir>] [--name <profile>] [--copy] [--dry-run]
  */
 import { existsSync, lstatSync, mkdirSync, readFileSync, rmSync, symlinkSync, cpSync, writeFileSync } from 'node:fs'
-import { homedir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { locateProfile } from './profile-location.mjs'
 
 const PACKAGE_NAME = 'dsh-sidebar-browser'
 /**
@@ -48,10 +51,8 @@ const option = (name, fallback) => {
   return at >= 0 && argv[at + 1] !== undefined ? argv[at + 1] : fallback
 }
 
-const dshHome = process.env.DSH_HOME ?? join(homedir(), 'Library', 'Application Support', 'dsh-desktop', 'harness')
-const profileDir = resolve(
-  option('--profile', process.env.DSH_PROFILE_DIR ?? join(dshHome, 'profiles', option('--name', 'web'))),
-)
+const profile = locateProfile({ profile: option('--profile', undefined), name: option('--name', undefined) })
+const profileDir = profile.dir
 const dryRun = flag('--dry-run')
 const copy = flag('--copy')
 
@@ -80,9 +81,10 @@ function dropEntry(text, id) {
 }
 
 if (!existsSync(join(profileDir, 'package.json'))) {
-  console.error(`找不到 profile：${profileDir}（先启动一次 DSH 让它初始化）`)
+  console.error(`找不到 profile：${profileDir}（先启动一次 DSH 让它初始化，或用 --profile 指定）`)
   process.exit(1)
 }
+say(`app:     ${profile.app ?? '未知（--profile 指定的目录）'}`)
 say(`profile: ${profileDir}`)
 say(`source:  ${projectRoot}`)
 
@@ -207,4 +209,8 @@ if (legacyInstalled && !legacyEntry.test(patch)) {
 if (patchChanged && !dryRun) writeFileSync(patchPath, patch.replace(/\n{3,}/g, '\n\n'))
 
 say(manifestChanged ? 'package.json 已更新' : 'package.json 无变化')
-say('完成。bundle 属于启动期配置：请重启 DSH Desktop；之后只改 client 半时硬刷新即可。')
+say(
+  profile.app === 'DeepSeek Harness'
+    ? '完成。DeepSeek Harness 会热加载 bundles 列表：面板稍后自行出现；client 半没跟上就硬刷新一次页面。'
+    : '完成。bundle 属于启动期配置：请重启 DSH Desktop；之后只改 client 半时硬刷新即可。',
+)

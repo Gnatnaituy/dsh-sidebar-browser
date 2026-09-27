@@ -72,7 +72,7 @@ gh repo rename dsh-sidebar-browser --repo Gnatnaituy/dsh_sidebar_element_picker
 git remote set-url origin https://github.com/Gnatnaituy/dsh-sidebar-browser.git
 ```
 
-改名后本地目录也跟着改了名（`dsh_sidebar_element_picker` → `dsh-sidebar-browser`），profile 里的软链与 `link:` 依赖指向旧路径会直接失效，所以**目录改名后必须重跑 `node tools/install-into-profile.mjs` 并重启 DSH Desktop**，否则侧边栏浏览器面板会报 `ENOENT ... resources/chrome.html`。
+改名后本地目录也跟着改了名（`dsh_sidebar_element_picker` → `dsh-sidebar-browser`），profile 里的软链与 `link:` 依赖指向旧路径会直接失效，所以**目录改名后必须重跑 `node tools/install-into-profile.mjs`**（DeepSeek Harness 会热加载，旧 DSH Desktop 需重启），否则侧边栏浏览器面板会报 `ENOENT ... resources/chrome.html`。
 
 `repository` 不是装饰：**如果你之后发了 npm，市场只会把 `repository` 指回被收录仓库的 npm 包关联起来**，指错了就没有下载量数字。
 
@@ -208,11 +208,10 @@ npm run test:browser  # 真 Chromium 端到端（需要 playwright-core，见下
 node tools/make-screenshots.mjs
 ```
 
-当前三张：
+当前两张：
 
 1. 浏览器面板里正在拾取元素（工具行「拾取」已激活、目标元素被高亮并显示选择器）
 2. 同一个页面切到 iPhone 15 Pro 393×852 视口后的重排效果
-3. 启动页（最近访问 + 已保存的账号密码）
 
 想换成你自己项目的截图（通常更好看），把文件放到 `assets/` 并改 `screenshots.json` 即可。
 
