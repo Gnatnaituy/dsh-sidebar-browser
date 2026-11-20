@@ -147,7 +147,7 @@ check('tool returns the element', read.ok === true && read.element.selector === 
 const missing = tools.get('read_picked_element').execute({ id: 'DOM9' })
 check('tool reports an unknown number', missing.ok === false, JSON.stringify(missing))
 
-const summary = prompts.get('dsh-sidebar-browser').text()
+const summary = prompts.get('dsh-sidebar-browser').text({ agent: { id: 's1' } })
 check('prompt lists the element', summary.includes('DOM1=') && summary.includes('提交订单'), summary.split('\n')[1])
 check('prompt names the tool', summary.includes('read_picked_element'))
 
@@ -169,10 +169,31 @@ const templated = await fetch(`http://127.0.0.1:${port1}/__dsh_shell__/pick`, {
   }),
 })
 check('a templated element is recorded', (await templated.json()).ok === true)
-const braced = prompts.get('dsh-sidebar-browser').text()
+const braced = prompts.get('dsh-sidebar-browser').text({ agent: { id: 's1' } })
 check('the prompt block still lists it', braced.includes('DOM2=') && braced.includes('item.name'))
 check('page text cannot open a prompt variable', !braced.includes('{{'), braced.split('\n').find((line) => line.includes('DOM2=')))
 check('the element itself keeps its braces', tools.get('read_picked_element').execute({ id: 'DOM2' }).element.text === '{{ item.name }}')
+
+// The prompt block is scoped to the conversation whose agent is assembling it:
+// picks from another conversation must not look like this one's references.
+// The tool stays global — a number is unique, and the user may quote one
+// anywhere — but the list the model reads here is only this conversation's.
+const otherOpen = await invoke('browser-open', { sessionId: 's6', url: `${target}/settings` })
+const otherPort = otherOpen.tabs[0].port
+const otherShell = await fetch(`http://127.0.0.1:${otherPort}/__dsh_shell__/chrome.html`)
+const otherCookie = (otherShell.headers.get('set-cookie') ?? '').split(';')[0]
+const otherPick = await fetch(`http://127.0.0.1:${otherPort}/__dsh_shell__/pick`, {
+  method: 'POST',
+  headers: { cookie: otherCookie, 'content-type': 'application/json' },
+  body: JSON.stringify({ tag: 'input', text: '搜索', selector: '#search', domPath: 'body > input', pageUrl: `${target}/settings` }),
+})
+check('a pick in another conversation is recorded', (await otherPick.json()).ok === true)
+const scoped = prompts.get('dsh-sidebar-browser').text({ agent: { id: 's1' } })
+check('the prompt keeps other conversations out', scoped.includes('DOM1=') && scoped.includes('DOM2=') && !scoped.includes('DOM3='), scoped.split('\n').slice(0, 4).join(' | '))
+const otherScoped = prompts.get('dsh-sidebar-browser').text({ agent: { id: 's6' } })
+check('another conversation lists only its own pick', otherScoped.includes('DOM3=') && !otherScoped.includes('DOM1='), otherScoped.split('\n').slice(0, 4).join(' | '))
+check('a diagnostic assembly lists nothing', prompts.get('dsh-sidebar-browser').text() === '')
+check('the tool still resolves another conversation\'s number', tools.get('read_picked_element').execute({ id: 'DOM3' }).element.selector === '#search')
 
 // A second page on another origin gets its own port, so the two sites cannot
 // share cookies or web storage.
@@ -274,7 +295,8 @@ check('the proxied page is the target document', (await proxied.text()).includes
 
 const cleared = await invoke('context-clear', { sessionId: 's1' })
 check('context-clear empties the list', cleared.ok === true && cleared.count === 0, JSON.stringify(cleared))
-check('prompt goes quiet after clearing', prompts.get('dsh-sidebar-browser').text() === '')
+check('prompt goes quiet after clearing', prompts.get('dsh-sidebar-browser').text({ agent: { id: 's1' } }) === '')
+check('clearing one conversation leaves another intact', prompts.get('dsh-sidebar-browser').text({ agent: { id: 's6' } }).includes('DOM3='))
 
 const status = await invoke('browser-status', { sessionId: 's1' })
 check('browser-status reports the open pages', status.ok === true && status.running === true && status.count === 2, JSON.stringify(status))
